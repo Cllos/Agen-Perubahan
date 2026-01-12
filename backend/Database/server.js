@@ -9,22 +9,65 @@ const PORT = 5000;
 app.use(cors());
 app.use(bodyParser.json());
 
-// --- ROUTES ---
+// ... (imports dan setup db sama)
 
-// 1. GET: Ambil Data Pegawai (Hanya role employee)
+// ---------------------------------------------------------
+// REVISI ROUTE LOGIN
+// Logic: Employee DILARANG login. Hanya Admin & Security.
+// ---------------------------------------------------------
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body;
+  const sql = "SELECT * FROM users WHERE username = $1";
+  
+  pool.query(sql, [username], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (result.rows.length === 0) return res.status(401).json({ message: "Username tidak ditemukan" });
+
+    const user = result.rows[0];
+
+    // Cek Password
+    if (user.password !== password) {
+      return res.status(401).json({ message: "Password salah" });
+    }
+
+    // --- LOGIC BARU: BLOKIR EMPLOYEE ---
+    if (user.role === 'employee') {
+      return res.status(403).json({ message: "Karyawan tidak memiliki akses aplikasi. Silakan hubungi Security/Admin untuk absensi." });
+    }
+
+    // Login Sukses (Admin / Security)
+    res.json({
+      message: "Login berhasil",
+      user: {
+        id: user.id,
+        employee_id: user.employee_id,
+        name: user.full_name,
+        role: user.role, 
+        avatar: user.avatar_url
+      }
+    });
+  });
+});
+
+// ---------------------------------------------------------
+// REVISI ROUTE GET PEGAWAI (Untuk Dropdown List)
+// Logic: Jangan tampilkan Admin atau Security di list absen
+// ---------------------------------------------------------
 app.get('/api/pegawai', (req, res) => {
-  // Kita ambil dari tabel 'users', bukan 'pegawai'
-  const sql = "SELECT * FROM users WHERE role = 'employee' ORDER BY created_at DESC";
+  // Hanya ambil yang role-nya 'employee'
+  // Jadi ID 'SEC...' dan 'ADM...' tidak akan muncul di list
+  const sql = "SELECT * FROM users WHERE role = 'employee' ORDER BY full_name ASC";
   
   pool.query(sql, (err, result) => {
     if (err) {
       console.error(err);
       return res.status(500).json({ error: err.message });
     }
-    // Kirim data ke frontend
     res.json(result.rows); 
   });
 });
+
+// ... (Sisa route attendance/dashboard biarkan sama)
 
 // 2. POST: Tambah Pegawai
 app.post('/api/pegawai', (req, res) => {
@@ -171,3 +214,40 @@ app.get('/api/dashboard', async (req, res) => {
   }
 });
 
+// 7. POST: Login User
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body;
+
+  // Query cari user berdasarkan username
+  const sql = "SELECT * FROM users WHERE username = $1";
+  
+  pool.query(sql, [username], (err, result) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({ message: "Username tidak ditemukan" });
+    }
+
+    const user = result.rows[0];
+
+    // Cek Password (Sederhana dulu, tanpa hash/enkripsi untuk belajar)
+    // Pastikan data di DB passwordnya sesuai input (misal 'default123')
+    if (user.password !== password) {
+      return res.status(401).json({ message: "Password salah" });
+    }
+
+    // Login Sukses
+    res.json({
+      message: "Login berhasil",
+      user: {
+        id: user.id,
+        employee_id: user.employee_id,
+        name: user.full_name,
+        role: user.role, // 'admin' atau 'employee'
+        avatar: user.avatar_url
+      }
+    });
+  });
+});

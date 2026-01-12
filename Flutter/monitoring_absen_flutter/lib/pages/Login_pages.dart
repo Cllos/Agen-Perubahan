@@ -1,13 +1,6 @@
 import 'package:flutter/material.dart';
 
-void main() {
-  runApp(MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: LoginScreen(onLogin: () {
-      print("Login clicked!");
-    }),
-  ));
-}
+// HAPUS void main() DARI SINI agar tidak bentrok dengan main.dart
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onLogin;
@@ -19,10 +12,10 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // Controller untuk menangani input text
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _rememberMe = false;
+  bool _isLoading = false; // Tambahkan state loading
 
   @override
   void dispose() {
@@ -32,17 +25,38 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _handleSubmit() {
-    // Di sini Anda bisa mengambil value dari controller
-    // print("Email: ${_emailController.text}");
-    // print("Password: ${_passwordController.text}");
-    widget.onLogin();
+    // 1. Validasi Input Sederhana (Dummy)
+    String email = _emailController.text.trim();
+    String password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Email dan Password tidak boleh kosong"),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // 2. Simulasi Loading & Login
+    setState(() => _isLoading = true);
+
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        
+        // Simulasi Login Berhasil (Bisa tambahkan logika if (password == '123') dsb)
+        // Panggil callback onLogin untuk pindah halaman
+        widget.onLogin();
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        // Background Gradient (from-blue-500 to-blue-700)
         width: double.infinity,
         height: double.infinity,
         decoration: BoxDecoration(
@@ -61,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Header Section
+                // Header Section (Icon)
                 Container(
                   width: 80,
                   height: 80,
@@ -77,28 +91,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                   ),
                   child: const Center(
-                    child: Text(
-                      "👤",
-                      style: TextStyle(fontSize: 36),
-                    ),
+                    child: Text("👤", style: TextStyle(fontSize: 36)),
                   ),
                 ),
                 const SizedBox(height: 16),
                 const Text(
                   "AttendEase",
-                  style: TextStyle(
-                    fontSize: 30,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                  style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
                 const SizedBox(height: 8),
                 const Text(
                   "Smart Attendance Management",
-                  style: TextStyle(
-                    color: Colors.lightBlueAccent, // matches text-blue-100 roughly
-                    fontSize: 16,
-                  ),
+                  style: TextStyle(color: Colors.lightBlueAccent, fontSize: 16),
                 ),
                 const SizedBox(height: 48),
 
@@ -109,10 +113,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   padding: const EdgeInsets.all(32),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(24), // rounded-3xl
+                    borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.2), // shadow-2xl equivalent
+                        color: Colors.black.withOpacity(0.2),
                         blurRadius: 25,
                         offset: const Offset(0, 10),
                       ),
@@ -125,9 +129,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         "Welcome Back",
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF1F2937), // text-gray-800
+                          fontSize: 24, fontWeight: FontWeight.w600, color: Color(0xFF1F2937)
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -169,19 +171,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: Row(
                           children: [
                             Icon(
-                              _rememberMe
-                                  ? Icons.check_box
-                                  : Icons.check_box_outline_blank,
+                              _rememberMe ? Icons.check_box : Icons.check_box_outline_blank,
                               color: _rememberMe ? Colors.blue.shade600 : Colors.grey,
                               size: 20,
                             ),
                             const SizedBox(width: 8),
                             const Text(
                               "Remember me",
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Color(0xFF374151), // text-gray-700
-                              ),
+                              style: TextStyle(fontSize: 14, color: Color(0xFF374151)),
                             ),
                           ],
                         ),
@@ -193,22 +190,21 @@ class _LoginScreenState extends State<LoginScreen> {
                       SizedBox(
                         height: 48,
                         child: ElevatedButton(
-                          onPressed: _handleSubmit,
+                          onPressed: _isLoading ? null : _handleSubmit, // Disable saat loading
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.blue.shade600,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12), // rounded-xl
-                            ),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             elevation: 4,
                           ),
-                          child: const Text(
-                            "Login",
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
+                          child: _isLoading 
+                            ? const SizedBox(
+                                height: 20, width: 20, 
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                              )
+                            : const Text(
+                                "Login",
+                                style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w500),
+                              ),
                         ),
                       ),
 
@@ -223,13 +219,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             minimumSize: Size.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
-                          child: Text(
-                            "Forgot Password?",
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.blue.shade600,
-                            ),
-                          ),
+                          child: Text("Forgot Password?", style: TextStyle(fontSize: 14, color: Colors.blue.shade600)),
                         ),
                       ),
                     ],
@@ -243,21 +233,16 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // Helper widget untuk label
   Widget _buildInputLabel(String label) {
     return Padding(
       padding: const EdgeInsets.only(left: 4),
       child: Text(
         label,
-        style: const TextStyle(
-          fontSize: 14,
-          color: Color(0xFF4B5563), // text-gray-600
-        ),
+        style: const TextStyle(fontSize: 14, color: Color(0xFF4B5563)),
       ),
     );
   }
 
-  // Helper untuk style input field agar konsisten
   InputDecoration _inputDecoration({required String hint, required IconData icon}) {
     return InputDecoration(
       hintText: hint,

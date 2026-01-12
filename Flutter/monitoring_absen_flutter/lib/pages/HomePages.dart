@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../models/attendance_model.dart'; // Pastikan path ini benar
-import 'AttendancePages.dart' as attendance_page;
+import '../widgets/AppDrawer.dart';
 
 class HomePages extends StatefulWidget {
   const HomePages({super.key});
@@ -165,7 +165,7 @@ class _HomeScreenState extends State<HomePages> {
     final int totalPresent = attendanceList.length;
 
     return Scaffold(
-      drawer: const attendance_page.AppDrawer(),
+      drawer: const AppDrawer(),
       backgroundColor: Colors.grey[50],
       body: isLoading 
         ? const Center(child: CircularProgressIndicator()) 

@@ -1,5 +1,49 @@
 import 'package:flutter/material.dart';
+import 'HomePages.dart';
+import 'AttendancePages.dart';
+import 'HistoryPages.dart';
+import '../widgets/AppDrawer.dart';
 
+class BottomNav extends StatefulWidget {
+  const BottomNav({super.key});
+
+  @override
+  State<BottomNav> createState() => _BottomNavState();
+}
+
+class _BottomNavState extends State<BottomNav> {
+  int _selectedIndex = 0;
+  
+  late final List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    _pages = [
+      const HomePages(),
+      const AttendancePages(),
+      const HistoryPages(),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      // Drawer agar bisa di-swipe dari kiri di semua halaman
+      drawer: const AppDrawer(), 
+      body: _pages[_selectedIndex],
+      // GANTI BottomNavigationBar bawaan dengan CustomBottomNavigation
+      bottomNavigationBar: CustomBottomNavigation(
+        selectedIndex: _selectedIndex,
+        onItemTapped: (index) {
+          setState(() => _selectedIndex = index);
+        },
+      ),
+    );
+  }
+}
+
+// --- WIDGET CUSTOM BOTTOM NAVIGATION ---
 class CustomBottomNavigation extends StatelessWidget {
   final int selectedIndex;
   final Function(int) onItemTapped;
