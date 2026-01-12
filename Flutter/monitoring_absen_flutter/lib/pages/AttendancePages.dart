@@ -283,7 +283,7 @@ class _AddAttendanceDialogState extends State<AddAttendanceDialog> {
                 children: [
                   const Text("Add Attendance", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
-                  const Text("Capture photo to check in", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  const Text("Capture photo to check in", style: TextStyle(fontSize: 12, color: Color.fromARGB(255, 25, 13, 165))),
                   const SizedBox(height: 20),
                   
                   // Area Foto
@@ -335,7 +335,7 @@ class _AddAttendanceDialogState extends State<AddAttendanceDialog> {
                     child: ElevatedButton(
                       onPressed: hasPhoto && !isCapturing ? _handleSubmit : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue[600],
+                        backgroundColor: const Color.fromARGB(255, 27, 127, 215),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
