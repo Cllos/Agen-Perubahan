@@ -1,43 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Search, X } from 'lucide-react';
+import { UserPlus, Search, Trash2, Edit, Save, X } from 'lucide-react';
 
 export default function DataPegawai() {
-  // --- STATE MANAGEMENT ---
   const [employees, setEmployees] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
   
-  // State untuk Modal/Dialog
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [deleteEmployeeId, setDeleteEmployeeId] = useState(null);
-  
-  // State untuk Form
-  const [currentEmployee, setCurrentEmployee] = useState(null);
+  // State Modal
+  const [showModal, setShowModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false); // Mode Edit atau Tambah?
+  const [editId, setEditId] = useState(null);        // ID user yang sedang diedit
+
+  // State Form (Hanya Nama & Posisi)
   const [formData, setFormData] = useState({
-    id: '',
-    name: '',
-    department: '',
-    role: '',
+    full_name: '',
+    position: ''
   });
 
-  // --- 1. READ (GET) DATA DARI SERVER ---
+  // State Search
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // --- 1. FETCH DATA ---
   const fetchEmployees = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/pegawai'); 
+      const response = await fetch('http://localhost:5000/api/pegawai');
       const data = await response.json();
-      
-      // Mapping dari Database (snake_case) ke Frontend (camelCase)
-      const formattedData = data.map(user => ({
-        id: user.employee_id,      
-        name: user.full_name,      
-        department: user.department,
-        role: user.position,       
-        avatar: user.avatar_url    
-      }));
-
-      setEmployees(formattedData); 
+      setEmployees(data);
+      setLoading(false);
     } catch (error) {
-      console.error("Gagal mengambil data pegawai:", error);
+      console.error("Error:", error);
+      setLoading(false);
     }
   };
 
@@ -45,198 +36,157 @@ export default function DataPegawai() {
     fetchEmployees();
   }, []);
 
-  // --- LOGIC FILTERING ---
-  const filteredEmployees = employees.filter(emp =>
-    emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    emp.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    emp.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    emp.role.toLowerCase().includes(searchQuery.toLowerCase())
+  // --- 2. HANDLE SUBMIT (TAMBAH / EDIT) ---
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if(!formData.full_name) {
+      alert("Nama wajib diisi!");
+      return;
+    }
+
+    const url = isEditing 
+      ? `http://localhost:5000/api/pegawai/${editId}` // URL Edit
+      : 'http://localhost:5000/api/pegawai';        // URL Tambah
+    
+    const method = isEditing ? 'PUT' : 'POST';
+
+    try {
+      const response = await fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert(isEditing ? "Data diperbarui!" : `Sukses! Pegawai baru ID: ${result.data.employee_id}`);
+        resetForm();
+        fetchEmployees();
+      } else {
+        alert(result.message || "Gagal menyimpan data");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Terjadi kesalahan koneksi");
+    }
+  };
+
+  // --- 3. HANDLE DELETE ---
+  const handleDelete = async (id, name) => {
+    if (window.confirm(`Yakin ingin menghapus pegawai "${name}"? Data absensi juga akan terhapus.`)) {
+      try {
+        const response = await fetch(`http://localhost:5000/api/pegawai/${id}`, {
+          method: 'DELETE',
+        });
+        
+        if (response.ok) {
+          alert("Pegawai berhasil dihapus");
+          fetchEmployees(); // Refresh list
+        } else {
+          alert("Gagal menghapus");
+        }
+      } catch (error) {
+        console.error(error);
+        alert("Error koneksi");
+      }
+    }
+  };
+
+  // --- HELPER: BUKA MODAL EDIT ---
+  const handleEditClick = (emp) => {
+    setIsEditing(true);
+    setEditId(emp.id);
+    setFormData({
+      full_name: emp.full_name,
+      position: emp.position || ''
+    });
+    setShowModal(true);
+  };
+
+  // --- HELPER: RESET FORM ---
+  const resetForm = () => {
+    setShowModal(false);
+    setIsEditing(false);
+    setEditId(null);
+    setFormData({ full_name: '', position: '' });
+  };
+
+  // Filter Search Logic
+  const filteredEmployees = employees.filter(emp => 
+    emp.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    emp.employee_id.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // --- HANDLERS ---
-  
-  const resetForm = () => {
-    setFormData({ id: '', name: '', department: '', role: '' });
-  };
-
-  // --- 2. CREATE (POST) KE SERVER ---
-  const handleAddEmployee = async (e) => {
-    e.preventDefault();
-    if (formData.id && formData.name) {
-      // Siapkan data yang mau dikirim ke server
-      const newEmployeeData = {
-        id: formData.id,
-        name: formData.name,
-        department: formData.department,
-        role: formData.role,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.name}`
-      };
-
-      try {
-        // Kirim request POST ke Backend
-        const response = await fetch('http://localhost:5000/api/pegawai', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newEmployeeData)
-        });
-
-        if (response.ok) {
-            // Jika sukses, ambil ulang data terbaru dari database
-            await fetchEmployees(); 
-            setIsAddDialogOpen(false);
-            resetForm();
-        } else {
-            console.error("Gagal menambah pegawai");
-        }
-      } catch (error) {
-        console.error("Error connecting to server:", error);
-      }
-    }
-  };
-
-  const openEditDialog = (employee) => {
-    setCurrentEmployee(employee);
-    setFormData({
-      id: employee.id,
-      name: employee.name,
-      department: employee.department,
-      role: employee.role,
-    });
-    setIsEditDialogOpen(true);
-  };
-
-  // --- 3. UPDATE (PUT) KE SERVER ---
-  const handleEditEmployee = async (e) => {
-    e.preventDefault();
-    if (currentEmployee) {
-      const updatedData = {
-        name: formData.name,
-        department: formData.department,
-        role: formData.role,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.name}`
-      };
-
-      try {
-        // Kirim request PUT berdasarkan ID
-        const response = await fetch(`http://localhost:5000/api/pegawai/${currentEmployee.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updatedData)
-        });
-
-        if (response.ok) {
-            await fetchEmployees(); // Refresh data
-            setIsEditDialogOpen(false);
-            resetForm();
-            setCurrentEmployee(null);
-        }
-      } catch (error) {
-        console.error("Error updating employee:", error);
-      }
-    }
-  };
-
-  // --- 4. DELETE KE SERVER ---
-  const handleDeleteEmployee = async () => {
-    if (deleteEmployeeId) {
-      try {
-        const response = await fetch(`http://localhost:5000/api/pegawai/${deleteEmployeeId}`, {
-            method: 'DELETE'
-        });
-
-        if (response.ok) {
-            await fetchEmployees(); // Refresh data
-            setDeleteEmployeeId(null);
-        }
-      } catch (error) {
-        console.error("Error deleting employee:", error);
-      }
-    }
-  };
-
   return (
-    <div className="p-4 md:p-8 space-y-6 min-h-screen bg-gray-50">
-      
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="p-4 md:p-8 space-y-6 bg-gray-50 min-h-screen">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-semibold text-gray-900">Data Pegawai</h1>
-          <p className="text-gray-500 mt-1">Kelola data seluruh pegawai perusahaan</p>
+          <h1 className="text-3xl font-bold text-gray-900">Data Pegawai</h1>
+          <p className="text-gray-500">Kelola data karyawan (Tanpa Login)</p>
         </div>
         <button 
-          onClick={() => { resetForm(); setIsAddDialogOpen(true); }}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-sm"
+          onClick={() => { resetForm(); setShowModal(true); }}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition shadow-sm"
         >
-          <Plus className="w-4 h-4" />
+          <UserPlus size={20} />
           Tambah Pegawai
         </button>
       </div>
 
-      {/* SEARCH BAR */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Cari pegawai berdasarkan nama, ID, departemen, atau jabatan..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+      {/* Search Bar */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+        <input 
+          type="text" 
+          placeholder="Cari nama atau ID..." 
+          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
       </div>
 
-      {/* TABLE */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      {/* Tabel */}
+      <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full text-left">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-4 font-medium text-gray-700">ID Pegawai</th>
-                <th className="px-6 py-4 font-medium text-gray-700">Nama</th>
-                <th className="px-6 py-4 font-medium text-gray-700">Departemen</th>
-                <th className="px-6 py-4 font-medium text-gray-700">Jabatan</th>
-                <th className="px-6 py-4 font-medium text-gray-700 text-right">Aksi</th>
+                <th className="p-4 font-semibold text-gray-700">ID</th>
+                <th className="p-4 font-semibold text-gray-700">Nama Lengkap</th>
+                <th className="p-4 font-semibold text-gray-700">Posisi</th>
+                <th className="p-4 font-semibold text-gray-700 text-center">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredEmployees.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                    Tidak ada data pegawai yang ditemukan
-                  </td>
-                </tr>
+            <tbody className="divide-y divide-gray-100">
+              {loading ? (
+                <tr><td colSpan="4" className="p-6 text-center text-gray-500">Memuat data...</td></tr>
+              ) : filteredEmployees.length === 0 ? (
+                <tr><td colSpan="4" className="p-6 text-center text-gray-500">Tidak ada data pegawai.</td></tr>
               ) : (
-                filteredEmployees.map((employee) => (
-                  <tr key={employee.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-gray-900">{employee.id}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <img 
-                          src={employee.avatar} 
-                          alt={employee.name} 
-                          className="w-8 h-8 rounded-full bg-gray-100"
-                        />
-                        <span className="text-gray-900">{employee.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-gray-600">{employee.department}</td>
-                    <td className="px-6 py-4 text-gray-600">{employee.role}</td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => openEditDialog(employee)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                filteredEmployees.map((emp) => (
+                  <tr key={emp.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="p-4 font-mono text-blue-600 font-bold">{emp.employee_id}</td>
+                    <td className="p-4 font-medium text-gray-900">{emp.full_name}</td>
+                    <td className="p-4 text-gray-600">{emp.position || '-'}</td>
+                    
+                    {/* KOLOM AKSI */}
+                    <td className="p-4">
+                      <div className="flex justify-center gap-2">
+                        <button 
+                          onClick={() => handleEditClick(emp)}
+                          className="p-2 bg-yellow-50 text-yellow-600 rounded-md hover:bg-yellow-100 transition border border-yellow-200"
                           title="Edit"
                         >
-                          <Pencil className="w-4 h-4" />
+                          <Edit size={18} />
                         </button>
-                        <button
-                          onClick={() => setDeleteEmployeeId(employee.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        <button 
+                          onClick={() => handleDelete(emp.id, emp.full_name)}
+                          className="p-2 bg-red-50 text-red-600 rounded-md hover:bg-red-100 transition border border-red-200"
                           title="Hapus"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 size={18} />
                         </button>
                       </div>
                     </td>
@@ -248,143 +198,66 @@ export default function DataPegawai() {
         </div>
       </div>
 
-      {/* MODAL TAMBAH PEGAWAI */}
-      {isAddDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Tambah Pegawai Baru</h2>
-              <button onClick={() => setIsAddDialogOpen(false)}><X className="w-5 h-5 text-gray-500" /></button>
+      {/* MODAL FORM (TAMBAH / EDIT) */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center p-6 border-b border-gray-100">
+              <h2 className="text-xl font-bold text-gray-800">
+                {isEditing ? 'Edit Data Pegawai' : 'Tambah Pegawai Baru'}
+              </h2>
+              <button onClick={resetForm} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
             </div>
-            <form onSubmit={handleAddEmployee} className="space-y-4">
+            
+            {/* Modal Body */}
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">ID Pegawai</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap <span className="text-red-500">*</span></label>
                 <input 
+                  type="text" 
+                  className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
+                  value={formData.full_name}
+                  onChange={e => setFormData({...formData, full_name: e.target.value})}
+                  placeholder="Contoh: Budi Santoso"
                   required
-                  value={formData.id}
-                  onChange={(e) => setFormData({...formData, id: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="Contoh: EMP016"
                 />
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Posisi / Jabatan</label>
                 <input 
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="Nama Pegawai"
+                  type="text" 
+                  className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
+                  value={formData.position}
+                  onChange={e => setFormData({...formData, position: e.target.value})}
+                  placeholder="Contoh: Staff Gudang"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Departemen</label>
-                <input 
-                  required
-                  value={formData.department}
-                  onChange={(e) => setFormData({...formData, department: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="Divisi / Departemen"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Jabatan</label>
-                <input 
-                  required
-                  value={formData.role}
-                  onChange={(e) => setFormData({...formData, role: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="Posisi Jabatan"
-                />
-              </div>
-              <div className="flex justify-end gap-3 mt-6">
-                <button type="button" onClick={() => setIsAddDialogOpen(false)} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">Batal</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Simpan</button>
+
+              {/* Action Buttons */}
+              <div className="pt-4 flex gap-3">
+                <button 
+                  type="button" 
+                  onClick={resetForm}
+                  className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition"
+                >
+                  Batal
+                </button>
+                <button 
+                  type="submit" 
+                  className="flex-1 px-4 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition flex justify-center items-center gap-2 shadow-md"
+                >
+                  <Save size={18} />
+                  Simpan
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
-
-      {/* MODAL EDIT PEGAWAI */}
-      {isEditDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Edit Data Pegawai</h2>
-              <button onClick={() => setIsEditDialogOpen(false)}><X className="w-5 h-5 text-gray-500" /></button>
-            </div>
-            <form onSubmit={handleEditEmployee} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">ID Pegawai</label>
-                <input 
-                  disabled
-                  value={formData.id}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-100 text-gray-500 cursor-not-allowed"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
-                <input 
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Departemen</label>
-                <input 
-                  required
-                  value={formData.department}
-                  onChange={(e) => setFormData({...formData, department: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Jabatan</label>
-                <input 
-                  required
-                  value={formData.role}
-                  onChange={(e) => setFormData({...formData, role: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                />
-              </div>
-              <div className="flex justify-end gap-3 mt-6">
-                <button type="button" onClick={() => setIsEditDialogOpen(false)} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">Batal</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Simpan Perubahan</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ALERT DELETE */}
-      {deleteEmployeeId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Hapus Pegawai</h2>
-            <p className="text-gray-600 mb-6">
-              Apakah Anda yakin ingin menghapus data pegawai ini? Tindakan ini tidak dapat dibatalkan.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button 
-                onClick={() => setDeleteEmployeeId(null)}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg font-medium"
-              >
-                Batal
-              </button>
-              <button 
-                onClick={handleDeleteEmployee}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
-              >
-                Hapus
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }

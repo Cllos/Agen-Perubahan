@@ -21,7 +21,7 @@ class _HomeScreenState extends State<HomePages> {
   Timer? _timer; // 2. Siapkan variabel timer
 
   // PASTIKAN IP INI SESUAI DENGAN IP LAPTOP ANDA SAAT INI
-  final String apiUrl = "http://192.168.12.86:5000/api/dashboard"; 
+  final String apiUrl = "http://10.29.71.1:5000/api/dashboard"; 
 
   @override
   void initState() {

@@ -70,7 +70,7 @@ class _HistoryScreenState extends State<HistoryPages> {
   Timer? _timer;
 
   // GANTI IP DI SINI SESUAI LAPTOP ANDA
-  final String apiUrl = "http://192.168.12.86:5000/api/riwayat"; 
+  final String apiUrl = "http://10.29.71.1:5000/api/riwayat"; 
 
   @override
   void initState() {
