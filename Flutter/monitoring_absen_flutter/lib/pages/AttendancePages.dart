@@ -1,9 +1,12 @@
+import 'dart:io'; // Untuk File
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'dart:math';
-import 'dart:convert'; // Untuk jsonDecode
-import 'package:http/http.dart' as http; // Untuk request API
-import '../widgets/AppDrawer.dart'; 
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart'; // Kamera
+import 'package:geolocator/geolocator.dart'; // GPS
+import 'package:geocoding/geocoding.dart'; // Alamat
+import '../widgets/AppDrawer.dart';
 
 // --- MODEL DATA ---
 class AttendanceRecord {
@@ -12,15 +15,14 @@ class AttendanceRecord {
   final String avatarUrl; 
   final DateTime checkInTime;
   final String status;
+  final String? location; // Tambahan Lokasi
+  final String? evidenceUrl; // Tambahan Bukti Foto
 
-  AttendanceRecord(this.id, this.employeeName, this.avatarUrl, this.checkInTime, this.status);
+  AttendanceRecord(this.id, this.employeeName, this.avatarUrl, this.checkInTime, this.status, {this.location, this.evidenceUrl});
 }
 
-// Data awal (Dummy untuk tampilan list absen hari ini)
-List<AttendanceRecord> todayAttendance = [
-  AttendanceRecord('1', 'Budi Santoso', 'BS', DateTime.now().subtract(Duration(minutes: 30)), 'Present'),
-  AttendanceRecord('2', 'Siti Aminah', 'SA', DateTime.now().subtract(Duration(hours: 1)), 'Late'),
-];
+// Data awal (Kosongkan dulu biar ambil dari state nanti)
+List<AttendanceRecord> todayAttendance = [];
 
 // --- MAIN WIDGET ---
 class AttendancePages extends StatefulWidget {
@@ -31,19 +33,11 @@ class AttendancePages extends StatefulWidget {
 }
 
 class _AttendancePagesState extends State<AttendancePages> {
-  // Format Waktu
+  // Format Waktu UI
   String _formatTime(DateTime date) {
     return "${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}";
   }
 
-  // Fungsi sort data (Terbaru di atas)
-  List<AttendanceRecord> get sortedList {
-    List<AttendanceRecord> list = List.from(todayAttendance);
-    list.sort((a, b) => b.checkInTime.compareTo(a.checkInTime));
-    return list;
-  }
-
-  // Handle Buka Dialog Absen
   void _showAddAttendanceDialog() {
     showDialog(
       context: context,
@@ -51,7 +45,9 @@ class _AttendancePagesState extends State<AttendancePages> {
       builder: (ctx) => AddAttendanceDialog(
         onSuccess: (newRecord) {
           setState(() {
-            todayAttendance.add(newRecord);
+            // Logic: Tambahkan data baru ke list paling atas (index 0)
+            // agar data tidak hilang dan langsung muncul
+            todayAttendance.insert(0, newRecord);
           });
         },
       ),
@@ -63,7 +59,6 @@ class _AttendancePagesState extends State<AttendancePages> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       drawer: const AppDrawer(), 
-
       body: Column(
         children: [
           // --- HEADER ---
@@ -76,35 +71,18 @@ class _AttendancePagesState extends State<AttendancePages> {
                 end: Alignment.bottomRight,
               ),
               borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.blue.withOpacity(0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 GestureDetector(
                   onTap: () => Scaffold.of(context).openDrawer(),
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.menu, color: Colors.white),
-                  ),
+                  child: const Icon(Icons.menu, color: Colors.white),
                 ),
-                Column(
-                  children: const [
-                    Text("Attendance", 
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-                    Text("Manage Daily Check-ins", 
-                      style: TextStyle(fontSize: 12, color: Colors.white70)),
+                const Column(
+                  children: [
+                    Text("Attendance", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                    Text("Manage Daily Check-ins", style: TextStyle(fontSize: 12, color: Colors.white70)),
                   ],
                 ),
                 IconButton(
@@ -115,45 +93,47 @@ class _AttendancePagesState extends State<AttendancePages> {
             ),
           ),
 
-          // --- BODY LIST ---
+          // --- LIST ATTENDANCE ---
           Expanded(
-            child: sortedList.isEmpty
+            child: todayAttendance.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.camera_alt, size: 60, color: Colors.grey[300]),
                         const SizedBox(height: 16),
-                        const Text("No Attendance Record", style: TextStyle(fontSize: 18, color: Colors.grey)),
+                        const Text("Belum ada data absensi hari ini", style: TextStyle(color: Colors.grey)),
                         const SizedBox(height: 8),
                         ElevatedButton.icon(
                           onPressed: _showAddAttendanceDialog,
                           icon: const Icon(Icons.add),
-                          label: const Text("Add Attendance"),
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.blue[600]),
+                          label: const Text("Absen Sekarang"),
                         )
                       ],
                     ),
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.all(16),
-                    itemCount: sortedList.length,
+                    itemCount: todayAttendance.length,
                     itemBuilder: (context, index) {
-                      final record = sortedList[index];
-                      final isPresent = record.status == 'Present';
-
+                      final record = todayAttendance[index];
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        elevation: 2,
                         child: Padding(
                           padding: const EdgeInsets.all(12),
                           child: Row(
                             children: [
+                              // Avatar / Foto Bukti
                               CircleAvatar(
                                 radius: 24,
                                 backgroundColor: Colors.blue[100],
-                                child: Text(record.avatarUrl, style: TextStyle(color: Colors.blue[800], fontWeight: FontWeight.bold)),
+                                backgroundImage: record.evidenceUrl != null 
+                                  ? NetworkImage(record.evidenceUrl!) // Tampilkan foto bukti jika ada
+                                  : null,
+                                child: record.evidenceUrl == null 
+                                  ? Text(record.avatarUrl, style: const TextStyle(fontWeight: FontWeight.bold))
+                                  : null,
                               ),
                               const SizedBox(width: 16),
                               Expanded(
@@ -166,25 +146,41 @@ class _AttendancePagesState extends State<AttendancePages> {
                                       children: [
                                         const Icon(Icons.access_time, size: 14, color: Colors.grey),
                                         const SizedBox(width: 4),
-                                        Text(_formatTime(record.checkInTime), style: const TextStyle(color: Colors.grey)),
+                                        Text(_formatTime(record.checkInTime), style: const TextStyle(color: Colors.grey, fontSize: 12)),
                                       ],
                                     ),
+                                    // Tampilkan Lokasi
+                                    if (record.location != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4.0),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.location_on, size: 14, color: Colors.redAccent),
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: Text(
+                                                record.location!, 
+                                                style: const TextStyle(color: Colors.grey, fontSize: 11),
+                                                maxLines: 1, 
+                                                overflow: TextOverflow.ellipsis
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                   ],
                                 ),
                               ),
+                              // Status Badge
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                 decoration: BoxDecoration(
-                                  color: isPresent ? Colors.green[50] : Colors.orange[50],
+                                  color: Colors.green[50],
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Text(
                                   record.status,
-                                  style: TextStyle(
-                                    color: isPresent ? Colors.green[700] : Colors.orange[700],
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
+                                  style: TextStyle(color: Colors.green[700], fontWeight: FontWeight.bold, fontSize: 12),
                                 ),
                               ),
                             ],
@@ -200,7 +196,7 @@ class _AttendancePagesState extends State<AttendancePages> {
   }
 }
 
-// --- WIDGET DIALOG ADD ATTENDANCE (FULL UPDATE) ---
+// --- DIALOG ADD ATTENDANCE (KAMERA & LOKASI) ---
 class AddAttendanceDialog extends StatefulWidget {
   final Function(AttendanceRecord) onSuccess;
   const AddAttendanceDialog({super.key, required this.onSuccess});
@@ -210,154 +206,176 @@ class AddAttendanceDialog extends StatefulWidget {
 }
 
 class _AddAttendanceDialogState extends State<AddAttendanceDialog> {
-  bool isCapturing = false;
-  bool isSuccess = false;
-  bool hasPhoto = false;
-  
-  // --- VARIABEL UNTUK DATA PEGAWAI DARI DB ---
-  bool isLoadingList = true;
-  List<dynamic> _employees = []; // Menyimpan list dari API
-  String? _selectedEmployeeName; // Nama untuk ditampilkan
-  String? _selectedEmployeeId;   // ID untuk logika (disimpan tapi belum dipakai kirim)
+  // State
+  File? _imageFile;
+  String _currentAddress = "Mencari lokasi...";
+  bool _isLoading = false;
+  bool _isLocationReady = false;
+
+  // Data Pegawai
+  List<dynamic> _employees = []; 
+  String? _selectedEmployeeName; 
+  String? _selectedEmployeeId;   
+
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
-    _fetchEmployees(); // Panggil API saat dialog dibuka
+    _fetchEmployees();
+    _getCurrentLocation(); // Otomatis cari lokasi saat dibuka
   }
 
-  // --- FUNGSI AMBIL DATA DARI DATABASE ---
+  // 1. Fetch Pegawai
   Future<void> _fetchEmployees() async {
     try {
-      // GANTI IP INI SESUAI LAPTOP ANDA
-      final response = await http.get(Uri.parse('http://10.29.71.1:5000/api/pegawai')); 
-      
+      // GANTI IP
+      final response = await http.get(Uri.parse('http://10.180.183.150:5000/api/pegawai')); 
       if (response.statusCode == 200) {
-        setState(() {
-          _employees = jsonDecode(response.body);
-          isLoadingList = false;
-        });
-      } else {
-        throw Exception('Failed to load employees');
+        setState(() => _employees = jsonDecode(response.body));
       }
     } catch (e) {
       print("Error fetching employees: $e");
+    }
+  }
+
+  // 2. Ambil Lokasi (GPS -> Alamat)
+  Future<void> _getCurrentLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      setState(() => _currentAddress = "GPS dimatikan.");
+      return;
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        setState(() => _currentAddress = "Izin lokasi ditolak.");
+        return;
+      }
+    }
+
+    try {
+      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      List<Placemark> placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
+      
+      if (placemarks.isNotEmpty) {
+        Placemark place = placemarks[0];
+        setState(() {
+          _currentAddress = "${place.street}, ${place.subLocality}, ${place.locality}";
+          _isLocationReady = true;
+        });
+      }
+    } catch (e) {
+      setState(() => _currentAddress = "Gagal memuat lokasi.");
+    }
+  }
+
+  // 3. Ambil Foto (Kamera)
+  Future<void> _handleCapture() async {
+    final XFile? photo = await _picker.pickImage(
+      source: ImageSource.camera, 
+      imageQuality: 50 // Kompres biar gak berat
+    );
+    
+    if (photo != null) {
       setState(() {
-        isLoadingList = false;
-        // Opsional: Tampilkan pesan error atau biarkan list kosong
+        _imageFile = File(photo.path);
       });
     }
   }
 
-  void _handleCapture() {
-    setState(() => isCapturing = true);
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        setState(() {
-          isCapturing = false;
-          hasPhoto = true;
-        });
-      }
-    });
-  }
+  // 4. Submit ke Backend
+  Future<void> _handleSubmit() async {
+    if (_selectedEmployeeId == null || _imageFile == null) return;
 
-  void _handleSubmit() {
-    if (_selectedEmployeeName == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Harap pilih nama pegawai!")),
-      );
-      return;
-    }
+    setState(() => _isLoading = true);
 
-    setState(() => isCapturing = true);
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        setState(() {
-          isCapturing = false;
-          isSuccess = true;
-        });
+    try {
+      // Setup Request Multipart
+      var request = http.MultipartRequest('POST', Uri.parse('http://10.29.71.1:5000/api/attendance'));
+      
+      // Fields text
+      request.fields['user_id'] = _selectedEmployeeId.toString(); // ID dari user_id tabel users
+      request.fields['status'] = 'tepat_waktu'; // Default
+      request.fields['location'] = _currentAddress;
 
-        // Membuat record baru untuk ditampilkan di list sementara
+      // File Image
+      request.files.add(await http.MultipartFile.fromPath('photo', _imageFile!.path));
+
+      // Kirim
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        var responseData = jsonDecode(response.body);
+        var data = responseData['data']; // Data log yang baru masuk
+
+        // Buat object record untuk update UI lokal
         final newRecord = AttendanceRecord(
-          _selectedEmployeeId ?? Random().nextInt(1000).toString(),
+          data['id'].toString(),
           _selectedEmployeeName!, 
-          _selectedEmployeeName!.substring(0, 2).toUpperCase(), // Inisial
+          _selectedEmployeeName!.substring(0, 2).toUpperCase(), 
           DateTime.now(),
-          "Present",
+          "Tepat Waktu",
+          location: _currentAddress,
+          evidenceUrl: data['photo_url'] // URL foto dari backend
         );
 
-        Future.delayed(const Duration(seconds: 1), () {
-          widget.onSuccess(newRecord);
-          Navigator.of(context).pop();
-        });
+        widget.onSuccess(newRecord); // Callback ke halaman utama
+        Navigator.of(context).pop(); // Tutup dialog
+      } else {
+        print("Gagal upload: ${response.body}");
       }
-    });
+    } catch (e) {
+      print("Error submitting: $e");
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
-  // --- FUNGSI MENAMPILKAN LIST PEGAWAI (POPUP) ---
   void _showEmployeeListDialog() {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Stack(
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          constraints: const BoxConstraints(maxHeight: 400),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: const EdgeInsets.only(top: 50, left: 16, right: 16, bottom: 16),
-                constraints: const BoxConstraints(maxHeight: 400),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      "Pilih Pegawai",
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 10),
-                    
-                    // Logic Tampilan List
-                    Flexible(
-                      child: isLoadingList
-                          ? const Center(child: CircularProgressIndicator())
-                          : _employees.isEmpty
-                              ? const Center(child: Text("Tidak ada data pegawai"))
-                              : ListView.separated(
-                                  shrinkWrap: true,
-                                  itemCount: _employees.length,
-                                  separatorBuilder: (ctx, i) => const Divider(),
-                                  itemBuilder: (context, index) {
-                                    final emp = _employees[index];
-                                    return ListTile(
-                                      // Sesuaikan key dengan response JSON backend ('full_name')
-                                      title: Text(emp['full_name'] ?? 'Nama Tidak Ada', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                      subtitle: Text(emp['department'] ?? '-'),
-                                      onTap: () {
-                                        setState(() {
-                                          _selectedEmployeeName = emp['full_name'];
-                                          _selectedEmployeeId = emp['employee_id'];
-                                        });
-                                        Navigator.pop(context); // Tutup list
-                                      },
-                                    );
-                                  },
-                                ),
-                    ),
-                  ],
+              const Text("Pilih Pegawai", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              const Divider(),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _employees.length,
+                  itemBuilder: (ctx, i) {
+                    final emp = _employees[i];
+                    return ListTile(
+                      title: Text(emp['full_name']),
+                      onTap: () {
+                        setState(() {
+                          _selectedEmployeeName = emp['full_name'];
+                          // Jika di DB ID adalah string 'EMP001', pastikan backend handle ini
+                          // Jika ID integer, parse dulu. Asumsi di sini ID = id (integer primary key)
+                          _selectedEmployeeId = emp['id'].toString(); 
+                        });
+                        Navigator.pop(ctx);
+                      },
+                    );
+                  },
                 ),
-              ),
-              // Tombol Close (Silang)
-              Positioned(
-                right: 8,
-                top: 8,
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.grey),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ),
+              )
             ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -365,135 +383,93 @@ class _AddAttendanceDialogState extends State<AddAttendanceDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
-            child: SizedBox(
-              width: 300,
-              child: isSuccess
-                  ? Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.check_circle, color: Colors.green[600], size: 60),
-                        const SizedBox(height: 16),
-                        const Text("Success!", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                        const Text("Attendance recorded"),
-                      ],
-                    )
-                  : Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text("Add Attendance", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 4),
-                        const Text("Select name & capture photo", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                        const SizedBox(height: 20),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text("Absen Masuk", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
 
-                        // --- KOTAK PILIH PEGAWAI ---
-                        GestureDetector(
-                          onTap: _showEmployeeListDialog,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey.shade400),
-                              borderRadius: BorderRadius.circular(10),
-                              color: Colors.white,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  _selectedEmployeeName ?? "Pilih Nama Pegawai",
-                                  style: TextStyle(
-                                    color: _selectedEmployeeName == null ? Colors.grey[600] : Colors.black,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
-                              ],
-                            ),
-                          ),
-                        ),
-                        
-                        const SizedBox(height: 16),
+              // 1. Pilih Pegawai
+              GestureDetector(
+                onTap: _showEmployeeListDialog,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(8)),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(_selectedEmployeeName ?? "Pilih Nama Pegawai"),
+                      const Icon(Icons.arrow_drop_down),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
 
-                        // --- AREA FOTO ---
-                        GestureDetector(
-                          onTap: hasPhoto ? null : _handleCapture,
-                          child: Container(
-                            height: 180,
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[100],
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.grey[300]!, style: BorderStyle.solid),
-                            ),
-                            child: isCapturing
-                                ? const Center(child: CircularProgressIndicator())
-                                : hasPhoto
-                                    ? ClipRRect(
-                                        borderRadius: BorderRadius.circular(16),
-                                        child: Stack(
-                                          children: [
-                                            Container(
-                                              color: Colors.blue[50],
-                                              child: const Center(child: Icon(Icons.person, size: 80, color: Colors.blue)),
-                                            ),
-                                            Positioned(
-                                              right: 8,
-                                              top: 8,
-                                              child: CircleAvatar(
-                                                backgroundColor: Colors.white,
-                                                radius: 16,
-                                                child: IconButton(
-                                                  icon: const Icon(Icons.refresh, size: 16, color: Colors.black),
-                                                  onPressed: () => setState(() => hasPhoto = false),
-                                                ),
-                                              ),
-                                            )
-                                          ],
-                                        ),
-                                      )
-                                    : const Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Icon(Icons.camera_alt, size: 40, color: Colors.grey),
-                                          SizedBox(height: 8),
-                                          Text("Tap to capture", style: TextStyle(color: Colors.grey)),
-                                        ],
-                                      ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        
-                        // --- TOMBOL SUBMIT ---
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: hasPhoto && !isCapturing ? _handleSubmit : null,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color.fromARGB(255, 27, 127, 215),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                            child: const Text("Submit Attendance", style: TextStyle(color: Colors.white)),
-                          ),
-                        )
-                      ],
+              // 2. Area Foto & Lokasi
+              GestureDetector(
+                onTap: _handleCapture,
+                child: Container(
+                  height: 200,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(12),
+                    image: _imageFile != null 
+                      ? DecorationImage(image: FileImage(_imageFile!), fit: BoxFit.cover)
+                      : null,
+                  ),
+                  child: _imageFile == null 
+                    ? const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.camera_alt, color: Colors.blue, size: 40),
+                          SizedBox(height: 8),
+                          Text("Tap untuk ambil foto"),
+                        ],
+                      )
+                    : null,
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // 3. Info Lokasi
+              Row(
+                children: [
+                  const Icon(Icons.location_on, color: Colors.red, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _currentAddress, 
+                      style: const TextStyle(fontSize: 12, color: Colors.black87),
                     ),
-            ),
-          ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
 
-          // --- TOMBOL CLOSE UTAMA ---
-          Positioned(
-            right: 8,
-            top: 8,
-            child: IconButton(
-              icon: const Icon(Icons.close, color: Colors.grey),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
+              // 4. Submit Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: (_imageFile != null && _selectedEmployeeId != null && !_isLoading) 
+                    ? _handleSubmit 
+                    : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue, 
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: _isLoading 
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white))
+                    : const Text("Submit Attendance", style: TextStyle(color: Colors.white)),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

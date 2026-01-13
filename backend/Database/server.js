@@ -3,6 +3,10 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const pool = require('./connect'); // File koneksi Anda
 
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
 const app = express();
 const PORT = 5000;
 
@@ -250,4 +254,61 @@ app.post('/api/login', (req, res) => {
       }
     });
   });
+});
+
+// Untuk Uploads Gambar Pegawai
+// 2. Agar folder uploads bisa diakses publik (untuk menampilkan gambar di App/Web)
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// 3. Konfigurasi Penyimpanan Gambar
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = 'uploads';
+    if (!fs.existsSync(dir)){
+        fs.mkdirSync(dir);
+    }
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    // Nama file: attendance-TIMESTAMP-RANDOM.jpg
+    cb(null, `attendance-${Date.now()}-${Math.round(Math.random() * 1E9)}${path.extname(file.originalname)}`);
+  }
+});
+
+const upload = multer({ storage: storage });
+
+// 4. POST: ABSEN BARU (FOTO + LOKASI)
+// ---------------------------------------------------------
+app.post('/api/attendance', upload.single('photo'), (req, res) => {
+  const { user_id, status, location } = req.body;
+  const photoUrl = req.file ? `http://10.29.71.1:5000/uploads/${req.file.filename}` : null; 
+  // Catatan: 10.0.2.2 adalah localhost untuk Emulator Android. 
+  // Jika pakai HP fisik/Web, ganti dengan IP Laptop Anda (misal 192.168.1.x)
+
+  // Tentukan waktu sekarang
+  const now = new Date();
+  const checkInTime = now.toTimeString().split(' ')[0]; // HH:MM:SS
+  const date = now.toISOString().split('T')[0]; // YYYY-MM-DD
+
+  const sql = `
+    INSERT INTO attendance_logs (user_id, date, check_in_time, status, photo_url, location) 
+    VALUES ($1, $2, $3, $4, $5, $6) 
+    RETURNING *
+  `;
+
+  const values = [user_id, date, checkInTime, status, photoUrl, location];
+
+  pool.query(sql, values, (err, result) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: err.message });
+    }
+    res.json({ message: "Absen berhasil!", data: result.rows[0] });
+  });
+});
+
+// ... (Endpoint Dashboard & Riwayat tetap ada) ...
+
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
 });
