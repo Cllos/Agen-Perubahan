@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../models/attendance_model.dart'; // Pastikan path ini benar
 import '../widgets/AppDrawer.dart';
+import 'dart:async'; // 1. Import paket timer
 
 class HomePages extends StatefulWidget {
   const HomePages({super.key});
@@ -12,17 +13,32 @@ class HomePages extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomePages> {
-  // --- STATE VARIABLES ---
+  // ... variable list dan loading tetap sama
   List<AttendanceRecord> attendanceList = [];
   bool isLoading = true;
+  
+  // Variabel Timer
+  Timer? _timer; // 2. Siapkan variabel timer
 
-  // GANTI DENGAN IP LAPTOP ANDA (Jangan localhost)
-  final String apiUrl = "http://10.29.71.1:5000/api/dashboard"; 
+  // PASTIKAN IP INI SESUAI DENGAN IP LAPTOP ANDA SAAT INI
+  final String apiUrl = "http://192.168.12.86:5000/api/dashboard"; 
 
   @override
   void initState() {
     super.initState();
-    fetchDashboardData();
+    fetchDashboardData(); // Fetch pertama kali
+
+    // 3. Pasang Timer: Jalankan fetchDashboardData setiap 5 detik
+    _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      fetchDashboardData();
+    });
+  }
+
+  @override
+  void dispose() {
+    // 4. Matikan Timer saat pindah halaman agar memori tidak bocor
+    _timer?.cancel(); 
+    super.dispose();
   }
 
   // --- FETCH DATA DARI API ---

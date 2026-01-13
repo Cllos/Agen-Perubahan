@@ -142,6 +142,8 @@ app.get('/api/riwayat', (req, res) => {
       a.date, 
       a.check_in_time, 
       a.status, 
+      a.photo_url,  -- TAMBAHAN: Ambil URL Foto
+      a.location,   -- TAMBAHAN: Ambil Lokasi
       u.employee_id, 
       u.full_name 
     FROM attendance_logs a
@@ -157,8 +159,6 @@ app.get('/api/riwayat', (req, res) => {
     res.json(result.rows);
   });
 });
-
-// ... kode sebelumnya ...
 
 // 6. GET: Dashboard Data (Statistik Lengkap)
 app.get('/api/dashboard', async (req, res) => {
@@ -281,7 +281,7 @@ const upload = multer({ storage: storage });
 // ---------------------------------------------------------
 app.post('/api/attendance', upload.single('photo'), (req, res) => {
   const { user_id, status, location } = req.body;
-  const photoUrl = req.file ? `http://10.29.71.1:5000/uploads/${req.file.filename}` : null; 
+  const photoUrl = req.file ? `http://192.168.12.86:5000/uploads/${req.file.filename}` : null; 
   // Catatan: 10.0.2.2 adalah localhost untuk Emulator Android. 
   // Jika pakai HP fisik/Web, ganti dengan IP Laptop Anda (misal 192.168.1.x)
 
