@@ -50,7 +50,7 @@ class HistoryPages extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryPages> {
   // --- GANTI IP DI SINI SESUAI LAPTOP ---
-  final String apiUrl = "http://10.180.183.225:5000/api/riwayat"; 
+  final String apiUrl = "http://10.63.23.253:5000/api/riwayat"; 
 
   List<HistoryRecord> _historyList = [];
   bool _isLoading = true;

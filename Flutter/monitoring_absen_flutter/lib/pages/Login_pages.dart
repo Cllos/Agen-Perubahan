@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'BottomNav.dart'; // Pastikan import ini ada untuk navigasi
+import 'BottomNav.dart'; 
 
 class LoginPages extends StatefulWidget {
   const LoginPages({super.key});
@@ -18,7 +18,7 @@ class _LoginPagesState extends State<LoginPages> {
   bool _isLoading = false;
 
   // --- GANTI IP DI SINI SESUAI LAPTOP ANDA ---
-  final String apiUrl = "http://10.180.183.225:5000/api/login"; 
+  final String apiUrl = "http://10.63.23.253:5000/api/login"; 
 
   @override
   void dispose() {
@@ -28,7 +28,6 @@ class _LoginPagesState extends State<LoginPages> {
   }
 
   Future<void> _handleLogin() async {
-    // 1. Validasi Input Kosong
     String username = _usernameController.text.trim();
     String password = _passwordController.text.trim();
 
@@ -40,7 +39,6 @@ class _LoginPagesState extends State<LoginPages> {
     setState(() => _isLoading = true);
 
     try {
-      // 2. Kirim Request ke Server
       final response = await http.post(
         Uri.parse(apiUrl),
         headers: {"Content-Type": "application/json"},
@@ -52,27 +50,21 @@ class _LoginPagesState extends State<LoginPages> {
 
       final data = jsonDecode(response.body);
 
-      if (!mounted) return; // Cek apakah widget masih aktif
+      if (!mounted) return; 
 
       if (response.statusCode == 200) {
-        // --- LOGIN BERHASIL ---
         _showSnackBar("Login Berhasil! Selamat datang ${data['user']['name']}", Colors.green);
-        
-        // Pindah ke Halaman Utama
         Navigator.pushReplacement(
           context, 
           MaterialPageRoute(builder: (context) => const BottomNav())
         );
 
       } else if (response.statusCode == 403) {
-        // --- BLOKIR KARYAWAN ---
         _showSnackBar("Akses Ditolak: Karyawan tidak dapat login di aplikasi ini.", Colors.orange);
       } else {
-        // --- USERNAME/PASSWORD SALAH ---
         _showSnackBar(data['message'] ?? "Login Gagal", Colors.red);
       }
     } catch (e) {
-      // --- ERROR KONEKSI ---
       _showSnackBar("Gagal terhubung ke server. Pastikan IP benar.", Colors.red);
       print("Error Login: $e");
     } finally {
@@ -108,7 +100,7 @@ class _LoginPagesState extends State<LoginPages> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // --- ICON HEADER ---
+                // ICON HEADER 
                 Container(
                   width: 90,
                   height: 90,
@@ -139,7 +131,7 @@ class _LoginPagesState extends State<LoginPages> {
                 ),
                 const SizedBox(height: 50),
 
-                // --- CARD LOGIN ---
+                // CARD LOGIN 
                 Container(
                   width: double.infinity,
                   constraints: const BoxConstraints(maxWidth: 400),
@@ -189,31 +181,6 @@ class _LoginPagesState extends State<LoginPages> {
                         decoration: _inputDecoration(
                           hint: "Masukkan Password",
                           icon: Icons.lock_outline,
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Remember Me
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _rememberMe = !_rememberMe;
-                          });
-                        },
-                        child: Row(
-                          children: [
-                            Icon(
-                              _rememberMe ? Icons.check_box : Icons.check_box_outline_blank,
-                              color: _rememberMe ? Colors.blue.shade600 : Colors.grey,
-                              size: 24,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              "Ingat Saya",
-                              style: TextStyle(fontSize: 14, color: Color(0xFF374151)),
-                            ),
-                          ],
                         ),
                       ),
 

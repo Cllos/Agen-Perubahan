@@ -18,8 +18,6 @@ class MyApp extends StatelessWidget {
         // Opsional: Setting font default atau warna global
         scaffoldBackgroundColor: Colors.grey[50],
       ),
-      // Langsung panggil LoginPages()
-      // Navigasi ke Home sudah diatur di dalam _handleLogin pada Login_pages.dart
       home: const LoginPages(), 
     );
   }

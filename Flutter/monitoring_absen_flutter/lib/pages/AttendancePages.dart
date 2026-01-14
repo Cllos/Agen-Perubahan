@@ -230,7 +230,7 @@ class _AddAttendanceDialogState extends State<AddAttendanceDialog> {
   Future<void> _fetchEmployees() async {
     try {
       // GANTI IP
-      final response = await http.get(Uri.parse('http://10.180.183.225:5000/api/pegawai')); 
+      final response = await http.get(Uri.parse('http://localhost:5000/api/pegawai')); 
       if (response.statusCode == 200) {
         setState(() => _employees = jsonDecode(response.body));
       }
@@ -297,7 +297,7 @@ class _AddAttendanceDialogState extends State<AddAttendanceDialog> {
 
     try {
       // Setup Request Multipart
-      var request = http.MultipartRequest('POST', Uri.parse('http://10.180.183.225:5000/api/attendance'));
+      var request = http.MultipartRequest('POST', Uri.parse('http://localhost:5000/api/attendance'));
       
       // Fields text
       request.fields['user_id'] = _selectedEmployeeId.toString(); // ID dari user_id tabel users

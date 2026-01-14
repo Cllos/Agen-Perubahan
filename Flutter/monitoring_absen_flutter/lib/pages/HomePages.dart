@@ -13,7 +13,7 @@ class HomePages extends StatefulWidget {
 
 class _HomeScreenState extends State<HomePages> {
   // --- PENTING: GANTI IP INI SESUAI WIFI LAPTOP ---
-  final String apiUrl = "http://10.180.183.225:5000/api/dashboard"; 
+  final String apiUrl = "http://localhost:5000/api/dashboard"; 
 
   Map<String, dynamic>? dashboardData;
   bool isLoading = true;
