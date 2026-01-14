@@ -9,88 +9,182 @@ const fs = require('fs');
 const app = express();
 const PORT = 5000;
 
+// Middleware
 app.use(cors());
 app.use(bodyParser.json());
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Folder statis untuk akses foto dari HP/Web
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// --- Multer Config ---
+// --- KONFIGURASI UPLOAD FOTO (MULTER) ---
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = 'uploads';
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir);
+    if (!fs.existsSync(dir)){
+        fs.mkdirSync(dir);
+    }
     cb(null, dir);
   },
   filename: (req, file, cb) => {
-    cb(null, `att-${Date.now()}-${Math.round(Math.random() * 1E9)}${path.extname(file.originalname)}`);
+    // Nama file unik: attendance-TIMESTAMP-RANDOM.jpg
+    cb(null, `attendance-${Date.now()}-${Math.round(Math.random() * 1E9)}${path.extname(file.originalname)}`);
   }
 });
+
 const upload = multer({ storage: storage });
 
-// ================= ROUTES =================
+// ==========================================
+// ROUTES API
+// ==========================================
 
-// 1. LOGIN
+// 1. LOGIN (Hanya Admin & Security)
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   const sql = "SELECT * FROM users WHERE username = $1";
+  
   pool.query(sql, [username], (err, result) => {
     if (err) return res.status(500).json({ error: err.message });
-    if (result.rows.length === 0) return res.status(401).json({ message: "User tidak ditemukan" });
+    if (result.rows.length === 0) return res.status(401).json({ message: "Username tidak ditemukan" });
+
     const user = result.rows[0];
-    if (user.password !== password) return res.status(401).json({ message: "Password salah" });
-    if (user.role === 'employee') return res.status(403).json({ message: "Akses ditolak" });
-    res.json({ message: "Login berhasil", user: { id: user.id, name: user.full_name, role: user.role, avatar: user.avatar_url } });
+
+    // Cek Password
+    if (user.password !== password) {
+      return res.status(401).json({ message: "Password salah" });
+    }
+
+    // Blokir Employee (Karyawan biasa tidak bisa login)
+    if (user.role === 'employee') {
+      return res.status(403).json({ message: "Karyawan tidak memiliki akses login." });
+    }
+
+    res.json({
+      message: "Login berhasil",
+      user: {
+        id: user.id,
+        employee_id: user.employee_id,
+        name: user.full_name,
+        role: user.role, 
+        avatar: user.avatar_url
+      }
+    });
   });
 });
 
-// 2. GET PEGAWAI
+// 2. GET LIST PEGAWAI (Dropdown HP & List Web)
 app.get('/api/pegawai', (req, res) => {
+  // Hanya ambil yang role='employee'
   const sql = "SELECT * FROM users WHERE role = 'employee' ORDER BY employee_id ASC";
+  
   pool.query(sql, (err, result) => {
-    if (err) return res.status(500).json({ error: err.message });
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: err.message });
+    }
     res.json(result.rows); 
   });
 });
 
-// 3. TAMBAH PEGAWAI
+// 3. TAMBAH PEGAWAI BARU (Auto ID + Tanpa Username/Password)
 app.post('/api/pegawai', async (req, res) => {
   const { full_name, position } = req.body; 
+
   try {
+    // A. Logic Auto-Generate ID (Cari EMP terakhir)
     const idCheckSql = "SELECT employee_id FROM users WHERE employee_id LIKE 'EMP%' ORDER BY employee_id DESC LIMIT 1";
     const idResult = await pool.query(idCheckSql);
+
     let newId = 'EMP001'; 
     if (idResult.rows.length > 0) {
-      const numberPart = parseInt(idResult.rows[0].employee_id.substring(3));
-      newId = 'EMP' + (numberPart + 1).toString().padStart(3, '0');
+      const lastId = idResult.rows[0].employee_id; // Misal: EMP003
+      const numberPart = parseInt(lastId.substring(3)); // Ambil angka 3
+      newId = 'EMP' + (numberPart + 1).toString().padStart(3, '0'); // Jadi EMP004
     }
-    const insertSql = "INSERT INTO users (employee_id, full_name, position, role) VALUES ($1, $2, $3, 'employee') RETURNING *";
+
+    // B. Masukkan ke Database (Role otomatis 'employee')
+    const insertSql = `
+      INSERT INTO users (employee_id, full_name, position, role)
+      VALUES ($1, $2, $3, 'employee')
+      RETURNING *
+    `;
+    
     const newUser = await pool.query(insertSql, [newId, full_name, position]);
-    res.json({ message: "Sukses", data: newUser.rows[0] });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+
+    res.json({ 
+      message: "Pegawai berhasil ditambahkan", 
+      data: newUser.rows[0] 
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// 4. ABSENSI (LOGIKA BARU: 5 TERCEPAT)
+// 4. EDIT PEGAWAI
+app.put('/api/pegawai/:id', async (req, res) => {
+  const { id } = req.params;
+  const { full_name, position } = req.body;
+
+  try {
+    const sql = "UPDATE users SET full_name = $1, position = $2 WHERE id = $3 RETURNING *";
+    const update = await pool.query(sql, [full_name, position, id]);
+
+    if (update.rows.length === 0) {
+      return res.status(404).json({ message: "Pegawai tidak ditemukan" });
+    }
+
+    res.json({ message: "Data pegawai diperbarui", data: update.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 5. HAPUS PEGAWAI
+app.delete('/api/pegawai/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const sql = "DELETE FROM users WHERE id = $1 RETURNING *";
+    const deleted = await pool.query(sql, [id]);
+
+    if (deleted.rows.length === 0) {
+      return res.status(404).json({ message: "Pegawai tidak ditemukan" });
+    }
+
+    res.json({ message: "Pegawai berhasil dihapus" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 6. ABSENSI (LOGIKA 5 TERCEPAT)
 app.post('/api/attendance', upload.single('photo'), async (req, res) => {
   const { user_id, location } = req.body;
-  const ipAddress = '192.168.1.5'; // GANTI IP LAPTOP ANDA
+  
+  // --- PENTING: GANTI IP DI BAWAH INI SESUAI IP WIFI LAPTOP ANDA ---
+  const ipAddress = '10.180.183.26'; // Contoh: 192.168.1.5
+  // -----------------------------------------------------------------
+  
   const photoUrl = req.file ? `http://${ipAddress}:5000/uploads/${req.file.filename}` : null; 
 
   const now = new Date();
-  const checkInTime = now.toTimeString().split(' ')[0];
-  const date = now.toISOString().split('T')[0];
+  const checkInTime = now.toTimeString().split(' ')[0]; // Format HH:MM:SS
+  const date = now.toISOString().split('T')[0]; // Format YYYY-MM-DD
 
   try {
-    // A. Cek Absensi Hari Ini untuk menentukan Status
-    // Hitung berapa orang yang sudah absen hari ini
+    // A. Cek jumlah absen hari ini untuk menentukan status
     const countSql = "SELECT COUNT(*) FROM attendance_logs WHERE date = $1";
     const countRes = await pool.query(countSql, [date]);
     const currentCount = parseInt(countRes.rows[0].count);
 
     // B. Tentukan Status
-    // Jika jumlah < 5, berarti dia termasuk 5 orang pertama -> 'tercepat'
-    // Jika >= 5, berarti dia orang ke-6 dst -> 'hadir'
+    // Jika jumlah < 5, berarti user ini adalah orang ke-1 sampai ke-5 -> 'tercepat'
+    // Jika sudah ada 5 orang atau lebih, maka user ini -> 'hadir'
     const status = currentCount < 5 ? 'tercepat' : 'hadir';
 
-    // C. Simpan ke DB
+    // C. Simpan ke Database
     const sql = `
       INSERT INTO attendance_logs (user_id, date, check_in_time, status, photo_url, location) 
       VALUES ($1, $2, $3, $4, $5, $6) 
@@ -106,7 +200,7 @@ app.post('/api/attendance', upload.single('photo'), async (req, res) => {
   }
 });
 
-// 5. DASHBOARD DATA (REVISI)
+// 7. DASHBOARD DATA (UNTUK SCROLLABLE BOX)
 app.get('/api/dashboard', async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
@@ -114,8 +208,8 @@ app.get('/api/dashboard', async (req, res) => {
     // A. Total Pegawai
     const countRes = await pool.query("SELECT COUNT(*) FROM users WHERE role = 'employee'");
     
-    // B. List Semua Yang Hadir Hari Ini (Untuk kotak Kiri - Scrollable)
-    // Diurutkan berdasarkan jam masuk. 
+    // B. List Hadir Hari Ini (Untuk Scrollable Kiri)
+    // Diurutkan berdasarkan jam masuk agar yang tercepat ada di atas
     const todayRes = await pool.query(`
       SELECT a.*, u.full_name, u.employee_id, u.avatar_url 
       FROM attendance_logs a
@@ -124,10 +218,9 @@ app.get('/api/dashboard', async (req, res) => {
       ORDER BY a.check_in_time ASC
     `, [today]);
 
-    // C. Leaderboard Bulanan (Untuk kotak Kanan - Scrollable)
+    // C. Leaderboard Bulanan (Untuk Scrollable Kanan)
     // Menghitung berapa kali user mendapat status 'tercepat' bulan ini
-    // Kita LEFT JOIN agar user yang skornya 0 tetap muncul (opsional, atau pakai INNER JOIN biar yang pernah cepat saja)
-    // Disini saya pakai LEFT JOIN ke tabel users agar semua pegawai muncul di leaderboard meskipun skor 0
+    // Menggunakan LEFT JOIN agar user yang skornya 0 tetap muncul di list
     const leaderboardRes = await pool.query(`
       SELECT u.full_name, u.employee_id, u.avatar_url,
              COALESCE(COUNT(a.id), 0) as score
@@ -144,8 +237,8 @@ app.get('/api/dashboard', async (req, res) => {
     res.json({
       totalEmployees: parseInt(countRes.rows[0].count),
       presentToday: todayRes.rows.length,
-      todayRecords: todayRes.rows,       // Data untuk kotak kiri
-      monthlyLeaderboard: leaderboardRes.rows // Data untuk kotak kanan
+      todayRecords: todayRes.rows,       // Array untuk kotak Kiri
+      monthlyLeaderboard: leaderboardRes.rows // Array untuk kotak Kanan
     });
 
   } catch (err) {
@@ -154,18 +247,33 @@ app.get('/api/dashboard', async (req, res) => {
   }
 });
 
-// ... (Route Riwayat, Edit, Hapus biarkan sama seperti sebelumnya, tapi hapus logic department jika ada)
+// 8. RIWAYAT LENGKAP
 app.get('/api/riwayat', (req, res) => {
   const sql = `
-    SELECT a.*, u.employee_id, u.full_name 
+    SELECT 
+      a.id, 
+      a.date, 
+      a.check_in_time, 
+      a.status, 
+      a.photo_url, 
+      a.location, 
+      u.employee_id, 
+      u.full_name 
     FROM attendance_logs a
     JOIN users u ON a.user_id = u.id
     ORDER BY a.date DESC, a.check_in_time DESC
   `;
+
   pool.query(sql, (err, result) => {
-    if (err) return res.status(500).json({ error: err.message });
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: err.message });
+    }
     res.json(result.rows);
   });
 });
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Jalankan Server
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});

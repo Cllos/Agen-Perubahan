@@ -1,56 +1,89 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'BottomNav.dart'; // Pastikan import ini ada untuk navigasi
 
-// HAPUS void main() DARI SINI agar tidak bentrok dengan main.dart
-
-class LoginScreen extends StatefulWidget {
-  final VoidCallback onLogin;
-
-  const LoginScreen({super.key, required this.onLogin});
+class LoginPages extends StatefulWidget {
+  const LoginPages({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<LoginPages> createState() => _LoginPagesState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _emailController = TextEditingController();
+class _LoginPagesState extends State<LoginPages> {
+  final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  
   bool _rememberMe = false;
-  bool _isLoading = false; // Tambahkan state loading
+  bool _isLoading = false;
+
+  // --- GANTI IP DI SINI SESUAI LAPTOP ANDA ---
+  final String apiUrl = "http://10.180.183.225:5000/api/login"; 
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  void _handleSubmit() {
-    // 1. Validasi Input Sederhana (Dummy)
-    String email = _emailController.text.trim();
+  Future<void> _handleLogin() async {
+    // 1. Validasi Input Kosong
+    String username = _usernameController.text.trim();
     String password = _passwordController.text.trim();
 
-    if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Email dan Password tidak boleh kosong"),
-          backgroundColor: Colors.red,
-        ),
-      );
+    if (username.isEmpty || password.isEmpty) {
+      _showSnackBar("Username dan Password harus diisi", Colors.red);
       return;
     }
 
-    // 2. Simulasi Loading & Login
     setState(() => _isLoading = true);
 
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() => _isLoading = false);
+    try {
+      // 2. Kirim Request ke Server
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "username": username,
+          "password": password,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (!mounted) return; // Cek apakah widget masih aktif
+
+      if (response.statusCode == 200) {
+        // --- LOGIN BERHASIL ---
+        _showSnackBar("Login Berhasil! Selamat datang ${data['user']['name']}", Colors.green);
         
-        // Simulasi Login Berhasil (Bisa tambahkan logika if (password == '123') dsb)
-        // Panggil callback onLogin untuk pindah halaman
-        widget.onLogin();
+        // Pindah ke Halaman Utama
+        Navigator.pushReplacement(
+          context, 
+          MaterialPageRoute(builder: (context) => const BottomNav())
+        );
+
+      } else if (response.statusCode == 403) {
+        // --- BLOKIR KARYAWAN ---
+        _showSnackBar("Akses Ditolak: Karyawan tidak dapat login di aplikasi ini.", Colors.orange);
+      } else {
+        // --- USERNAME/PASSWORD SALAH ---
+        _showSnackBar(data['message'] ?? "Login Gagal", Colors.red);
       }
-    });
+    } catch (e) {
+      // --- ERROR KONEKSI ---
+      _showSnackBar("Gagal terhubung ke server. Pastikan IP benar.", Colors.red);
+      print("Error Login: $e");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: color),
+    );
   }
 
   @override
@@ -64,8 +97,8 @@ class _LoginScreenState extends State<LoginScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Colors.blue.shade500,
-              Colors.blue.shade700,
+              Colors.blue.shade600,
+              Colors.blue.shade900,
             ],
           ),
         ),
@@ -75,48 +108,48 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Header Section (Icon)
+                // --- ICON HEADER ---
                 Container(
-                  width: 80,
-                  height: 80,
+                  width: 90,
+                  height: 90,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 15,
+                        offset: const Offset(0, 5),
                       ),
                     ],
                   ),
-                  child: const Center(
-                    child: Text("👤", style: TextStyle(fontSize: 36)),
+                  child: Center(
+                    child: Icon(Icons.admin_panel_settings, size: 50, color: Colors.blue.shade800),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
                 const Text(
                   "AttendEase",
-                  style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.2),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  "Smart Attendance Management",
-                  style: TextStyle(color: Colors.lightBlueAccent, fontSize: 16),
+                Text(
+                  "Admin & Security Access",
+                  style: TextStyle(color: Colors.blue.shade100, fontSize: 16),
                 ),
-                const SizedBox(height: 48),
+                const SizedBox(height: 50),
 
-                // Card Section
+                // --- CARD LOGIN ---
                 Container(
                   width: double.infinity,
-                  constraints: const BoxConstraints(maxWidth: 450),
+                  constraints: const BoxConstraints(maxWidth: 400),
                   padding: const EdgeInsets.all(32),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
+                        color: Colors.black.withOpacity(0.25),
                         blurRadius: 25,
                         offset: const Offset(0, 10),
                       ),
@@ -129,19 +162,19 @@ class _LoginScreenState extends State<LoginScreen> {
                         "Welcome Back",
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 24, fontWeight: FontWeight.w600, color: Color(0xFF1F2937)
+                          fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 30),
 
-                      // Email Input
-                      _buildInputLabel("Email / Employee ID"),
+                      // Username Input
+                      _buildInputLabel("Username"),
                       const SizedBox(height: 8),
                       TextField(
-                        controller: _emailController,
+                        controller: _usernameController,
                         decoration: _inputDecoration(
-                          hint: "Enter your email or ID",
-                          icon: Icons.mail_outline,
+                          hint: "Masukkan Username",
+                          icon: Icons.person_outline,
                         ),
                       ),
 
@@ -154,14 +187,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         controller: _passwordController,
                         obscureText: true,
                         decoration: _inputDecoration(
-                          hint: "Enter your password",
+                          hint: "Masukkan Password",
                           icon: Icons.lock_outline,
                         ),
                       ),
 
                       const SizedBox(height: 20),
 
-                      // Remember Me Toggle
+                      // Remember Me
                       GestureDetector(
                         onTap: () {
                           setState(() {
@@ -173,58 +206,50 @@ class _LoginScreenState extends State<LoginScreen> {
                             Icon(
                               _rememberMe ? Icons.check_box : Icons.check_box_outline_blank,
                               color: _rememberMe ? Colors.blue.shade600 : Colors.grey,
-                              size: 20,
+                              size: 24,
                             ),
                             const SizedBox(width: 8),
                             const Text(
-                              "Remember me",
+                              "Ingat Saya",
                               style: TextStyle(fontSize: 14, color: Color(0xFF374151)),
                             ),
                           ],
                         ),
                       ),
 
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 30),
 
-                      // Login Button
+                      // Tombol Login
                       SizedBox(
-                        height: 48,
+                        height: 50,
                         child: ElevatedButton(
-                          onPressed: _isLoading ? null : _handleSubmit, // Disable saat loading
+                          onPressed: _isLoading ? null : _handleLogin,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue.shade600,
+                            backgroundColor: Colors.blue.shade700,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            elevation: 4,
+                            elevation: 5,
+                            shadowColor: Colors.blue.withOpacity(0.4),
                           ),
                           child: _isLoading 
                             ? const SizedBox(
-                                height: 20, width: 20, 
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                                height: 24, width: 24, 
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)
                               )
                             : const Text(
-                                "Login",
-                                style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w500),
+                                "LOGIN",
+                                style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1),
                               ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Forgot Password Link
-                      Center(
-                        child: TextButton(
-                          onPressed: () {},
-                          style: TextButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          child: Text("Forgot Password?", style: TextStyle(fontSize: 14, color: Colors.blue.shade600)),
                         ),
                       ),
                     ],
                   ),
                 ),
+                
+                const SizedBox(height: 30),
+                Text(
+                  "Versi 1.0.0",
+                  style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                )
               ],
             ),
           ),
@@ -238,7 +263,7 @@ class _LoginScreenState extends State<LoginScreen> {
       padding: const EdgeInsets.only(left: 4),
       child: Text(
         label,
-        style: const TextStyle(fontSize: 14, color: Color(0xFF4B5563)),
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF4B5563)),
       ),
     );
   }
@@ -247,17 +272,17 @@ class _LoginScreenState extends State<LoginScreen> {
     return InputDecoration(
       hintText: hint,
       hintStyle: TextStyle(color: Colors.grey.shade400),
-      prefixIcon: Icon(icon, color: Colors.grey.shade400, size: 20),
+      prefixIcon: Icon(icon, color: Colors.blue.shade300, size: 22),
       contentPadding: const EdgeInsets.symmetric(vertical: 16),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: Colors.grey.shade50,
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: Colors.grey.shade300),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.blue, width: 2),
+        borderSide: BorderSide(color: Colors.blue.shade600, width: 2),
       ),
     );
   }

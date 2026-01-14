@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'pages/Login_pages.dart'; // Import halaman Login
-import 'pages/BottomNav.dart';   // Import halaman Utama (BottomNav)
+import 'pages/Login_pages.dart'; // Pastikan path import benar
 
 void main() {
   runApp(const MyApp());
@@ -14,28 +13,14 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Monitoring Absen',
-      // Home diganti menjadi Wrapper untuk Login
-      home: const LoginWrapper(), 
-    );
-  }
-}
-
-// Widget Wrapper untuk menangani Navigasi dari Login ke Home
-class LoginWrapper extends StatelessWidget {
-  const LoginWrapper({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return LoginScreen(
-      onLogin: () {
-        // Logika Pindah Halaman:
-        // pushReplacement digunakan agar user tidak bisa kembali ke halaman login 
-        // dengan tombol Back setelah berhasil login.
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const BottomNav()),
-        );
-      },
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        // Opsional: Setting font default atau warna global
+        scaffoldBackgroundColor: Colors.grey[50],
+      ),
+      // Langsung panggil LoginPages()
+      // Navigasi ke Home sudah diatur di dalam _handleLogin pada Login_pages.dart
+      home: const LoginPages(), 
     );
   }
 }
