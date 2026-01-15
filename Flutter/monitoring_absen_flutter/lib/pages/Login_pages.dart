@@ -18,7 +18,7 @@ class _LoginPagesState extends State<LoginPages> {
   bool _isLoading = false;
 
   // --- GANTI IP DI SINI SESUAI LAPTOP ANDA ---
-  final String apiUrl = "http://10.63.23.253:5000/api/login"; 
+  final String apiUrl = "http://localhost:5000/api/login"; 
 
   @override
   void dispose() {

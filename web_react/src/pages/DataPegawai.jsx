@@ -124,7 +124,7 @@ export default function DataPegawai() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Data Pegawai</h1>
-          <p className="text-gray-500">Kelola data karyawan (Tanpa Login)</p>
+          <p className="text-gray-500">Kelola data karyawan</p>
         </div>
         <button 
           onClick={() => { resetForm(); setShowModal(true); }}
