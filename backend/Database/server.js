@@ -13,16 +13,16 @@ const PORT = 5000;
 app.use(cors());
 app.use(bodyParser.json());
 // Folder statis untuk akses foto dari HP/Web
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+const uploadsDir = path.join(__dirname, '..', 'uploads');
+app.use('/uploads', express.static(uploadsDir));
 
 // --- KONFIGURASI UPLOAD FOTO (MULTER) ---
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = 'uploads';
-    if (!fs.existsSync(dir)){
-        fs.mkdirSync(dir);
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
     }
-    cb(null, dir);
+    cb(null, uploadsDir);
   },
   filename: (req, file, cb) => {
     // Nama file unik: attendance-TIMESTAMP-RANDOM.jpg
@@ -162,12 +162,7 @@ app.delete('/api/pegawai/:id', async (req, res) => {
 // 6. ABSENSI (LOGIKA 5 TERCEPAT)
 app.post('/api/attendance', upload.single('photo'), async (req, res) => {
   const { user_id, location } = req.body;
-  
-  // --- PENTING: GANTI IP DI BAWAH INI SESUAI IP WIFI LAPTOP ANDA ---
-  const ipAddress = '10.180.183.26'; // Contoh: 192.168.1.5
-  // -----------------------------------------------------------------
-  
-  const photoUrl = req.file ? `http://${ipAddress}:5000/uploads/${req.file.filename}` : null; 
+  const photoUrl = req.file ? `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}` : null;
 
   const now = new Date();
   const checkInTime = now.toTimeString().split(' ')[0]; // Format HH:MM:SS

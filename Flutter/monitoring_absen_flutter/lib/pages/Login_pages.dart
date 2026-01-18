@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import '../helpers/api_helper.dart';
 import 'BottomNav.dart'; 
 
 class LoginPages extends StatefulWidget {
@@ -14,11 +17,10 @@ class _LoginPagesState extends State<LoginPages> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   
-  bool _rememberMe = false;
   bool _isLoading = false;
 
   // --- GANTI IP DI SINI SESUAI LAPTOP ANDA ---
-  final String apiUrl = "http://localhost:5000/api/login"; 
+  final String apiUrl = ApiHelper.getUrl('/api/login');
 
   @override
   void dispose() {
@@ -46,7 +48,7 @@ class _LoginPagesState extends State<LoginPages> {
           "username": username,
           "password": password,
         }),
-      );
+      ).timeout(ApiHelper.requestTimeout);
 
       final data = jsonDecode(response.body);
 
@@ -64,9 +66,19 @@ class _LoginPagesState extends State<LoginPages> {
       } else {
         _showSnackBar(data['message'] ?? "Login Gagal", Colors.red);
       }
+    } on TimeoutException {
+      _showSnackBar(
+        "Request timeout. Cek koneksi dan pastikan server bisa diakses.",
+        Colors.red,
+      );
+    } on SocketException {
+      _showSnackBar(
+        "Gagal terhubung ke server. Pastikan IP/port benar dan satu jaringan.",
+        Colors.red,
+      );
     } catch (e) {
       _showSnackBar("Gagal terhubung ke server. Pastikan IP benar.", Colors.red);
-      print("Error Login: $e");
+      debugPrint("Error Login: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -109,7 +121,7 @@ class _LoginPagesState extends State<LoginPages> {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
+                        color: Colors.black.withValues(alpha: 51),
                         blurRadius: 15,
                         offset: const Offset(0, 5),
                       ),
@@ -141,7 +153,7 @@ class _LoginPagesState extends State<LoginPages> {
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.25),
+                        color: Colors.black.withValues(alpha: 64),
                         blurRadius: 25,
                         offset: const Offset(0, 10),
                       ),
@@ -195,7 +207,7 @@ class _LoginPagesState extends State<LoginPages> {
                             backgroundColor: Colors.blue.shade700,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             elevation: 5,
-                            shadowColor: Colors.blue.withOpacity(0.4),
+                            shadowColor: Colors.blue.withValues(alpha: 102),
                           ),
                           child: _isLoading 
                             ? const SizedBox(
@@ -215,7 +227,7 @@ class _LoginPagesState extends State<LoginPages> {
                 const SizedBox(height: 30),
                 Text(
                   "Versi 1.0.0",
-                  style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 128), fontSize: 12),
                 )
               ],
             ),

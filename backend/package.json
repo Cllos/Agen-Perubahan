@@ -1,6 +1,19 @@
 {
+  "name": "my-node-app",
+  "version": "1.0.0",
+  "description": "A simple Node.js application example.",
+  "main": "/Database/server.js",
+  "scripts": {
+    "start": "node ./Database/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Your Name",
+  "license": "ISC",
   "dependencies": {
     "multer": "^2.0.2",
     "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11"
   }
 }

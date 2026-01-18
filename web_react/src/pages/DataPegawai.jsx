@@ -221,7 +221,7 @@ export default function DataPegawai() {
                   className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
                   value={formData.full_name}
                   onChange={e => setFormData({...formData, full_name: e.target.value})}
-                  placeholder="Contoh: Budi Santoso"
+                  placeholder="Contoh: Budiono Siregar"
                   required
                 />
               </div>
@@ -233,7 +233,7 @@ export default function DataPegawai() {
                   className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
                   value={formData.position}
                   onChange={e => setFormData({...formData, position: e.target.value})}
-                  placeholder="Contoh: Staff Gudang"
+                  placeholder="Contoh: IT Support"
                 />
               </div>
 

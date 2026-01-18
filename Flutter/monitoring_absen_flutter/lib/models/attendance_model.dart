@@ -13,7 +13,7 @@ class AttendanceRecord {
     required this.employeeAvatar,
     required this.checkInTime,
     required this.status,
-    this.location = "Office", // Default location jika tidak ada di DB
+    this.location = "Office",
     this.photoUrl = "https://via.placeholder.com/200",
   });
 

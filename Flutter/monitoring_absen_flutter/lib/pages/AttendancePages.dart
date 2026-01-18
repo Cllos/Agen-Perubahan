@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../helpers/api_helper.dart';
 import 'package:image_picker/image_picker.dart'; // Kamera
 import 'package:geolocator/geolocator.dart'; // GPS
 import 'package:geocoding/geocoding.dart'; // Alamat
@@ -128,12 +129,25 @@ class _AttendancePagesState extends State<AttendancePages> {
                               CircleAvatar(
                                 radius: 24,
                                 backgroundColor: Colors.blue[100],
-                                backgroundImage: record.evidenceUrl != null 
-                                  ? NetworkImage(record.evidenceUrl!) // Tampilkan foto bukti jika ada
-                                  : null,
-                                child: record.evidenceUrl == null 
-                                  ? Text(record.avatarUrl, style: const TextStyle(fontWeight: FontWeight.bold))
-                                  : null,
+                                child: record.evidenceUrl != null
+                                    ? ClipOval(
+                                        child: Image.network(
+                                          record.evidenceUrl!,
+                                          width: 48,
+                                          height: 48,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return const SizedBox(
+                                              width: 48,
+                                              height: 48,
+                                              child: Center(
+                                                child: Icon(Icons.broken_image_outlined, color: Colors.white),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      )
+                                    : Text(record.avatarUrl, style: const TextStyle(fontWeight: FontWeight.bold)),
                               ),
                               const SizedBox(width: 16),
                               Expanded(
@@ -210,7 +224,6 @@ class _AddAttendanceDialogState extends State<AddAttendanceDialog> {
   File? _imageFile;
   String _currentAddress = "Mencari lokasi...";
   bool _isLoading = false;
-  bool _isLocationReady = false;
 
   // Data Pegawai
   List<dynamic> _employees = []; 
@@ -230,12 +243,19 @@ class _AddAttendanceDialogState extends State<AddAttendanceDialog> {
   Future<void> _fetchEmployees() async {
     try {
       // GANTI IP
-      final response = await http.get(Uri.parse('http://localhost:5000/api/pegawai')); 
+      final response = await http
+          .get(Uri.parse(ApiHelper.getUrl('/api/pegawai')))
+          .timeout(ApiHelper.requestTimeout);
       if (response.statusCode == 200) {
+        if (!mounted) return;
         setState(() => _employees = jsonDecode(response.body));
       }
+    } on TimeoutException {
+      debugPrint("Error fetching employees: timeout");
+    } on SocketException {
+      debugPrint("Error fetching employees: socket");
     } catch (e) {
-      print("Error fetching employees: $e");
+      debugPrint("Error fetching employees: $e");
     }
   }
 
@@ -267,7 +287,6 @@ class _AddAttendanceDialogState extends State<AddAttendanceDialog> {
         Placemark place = placemarks[0];
         setState(() {
           _currentAddress = "${place.street}, ${place.subLocality}, ${place.locality}";
-          _isLocationReady = true;
         });
       }
     } catch (e) {
@@ -297,7 +316,7 @@ class _AddAttendanceDialogState extends State<AddAttendanceDialog> {
 
     try {
       // Setup Request Multipart
-      var request = http.MultipartRequest('POST', Uri.parse('http://localhost:5000/api/attendance'));
+      var request = http.MultipartRequest('POST', Uri.parse(ApiHelper.getUrl('/api/attendance')));
       
       // Fields text
       request.fields['user_id'] = _selectedEmployeeId.toString(); // ID dari user_id tabel users
@@ -308,7 +327,7 @@ class _AddAttendanceDialogState extends State<AddAttendanceDialog> {
       request.files.add(await http.MultipartFile.fromPath('photo', _imageFile!.path));
 
       // Kirim
-      var streamedResponse = await request.send();
+      var streamedResponse = await request.send().timeout(ApiHelper.requestTimeout);
       var response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
@@ -326,15 +345,20 @@ class _AddAttendanceDialogState extends State<AddAttendanceDialog> {
           evidenceUrl: data['photo_url'] // URL foto dari backend
         );
 
+        if (!mounted) return;
         widget.onSuccess(newRecord); // Callback ke halaman utama
         Navigator.of(context).pop(); // Tutup dialog
       } else {
-        print("Gagal upload: ${response.body}");
+        debugPrint("Gagal upload: ${response.body}");
       }
+    } on TimeoutException {
+      debugPrint("Error submitting: timeout");
+    } on SocketException {
+      debugPrint("Error submitting: socket");
     } catch (e) {
-      print("Error submitting: $e");
+      debugPrint("Error submitting: $e");
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

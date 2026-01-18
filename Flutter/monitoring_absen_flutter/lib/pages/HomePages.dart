@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'dart:async';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import '../helpers/api_helper.dart';
 import '../widgets/AppDrawer.dart'; // Pastikan import Drawer ada
 
 class HomePages extends StatefulWidget {
@@ -13,7 +15,7 @@ class HomePages extends StatefulWidget {
 
 class _HomeScreenState extends State<HomePages> {
   // --- PENTING: GANTI IP INI SESUAI WIFI LAPTOP ---
-  final String apiUrl = "http://localhost:5000/api/dashboard"; 
+  final String apiUrl = ApiHelper.getUrl('/api/dashboard');
 
   Map<String, dynamic>? dashboardData;
   bool isLoading = true;
@@ -37,7 +39,9 @@ class _HomeScreenState extends State<HomePages> {
 
   Future<void> fetchDashboardData() async {
     try {
-      final response = await http.get(Uri.parse(apiUrl));
+      final response = await http
+          .get(Uri.parse(apiUrl))
+          .timeout(ApiHelper.requestTimeout);
       if (response.statusCode == 200) {
         if (mounted) {
           setState(() {
@@ -46,8 +50,25 @@ class _HomeScreenState extends State<HomePages> {
           });
         }
       }
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() {
+        dashboardData = null;
+        isLoading = false;
+      });
+    } on SocketException {
+      if (!mounted) return;
+      setState(() {
+        dashboardData = null;
+        isLoading = false;
+      });
     } catch (e) {
-      print("Error fetching dashboard: $e");
+      debugPrint("Error fetching dashboard: $e");
+      if (!mounted) return;
+      setState(() {
+        dashboardData = null;
+        isLoading = false;
+      });
     }
   }
 
@@ -108,7 +129,7 @@ class _HomeScreenState extends State<HomePages> {
                               bottomRight: Radius.circular(30),
                             ),
                             boxShadow: [
-                              BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))
+                              BoxShadow(color: Colors.blue.withValues(alpha: 77), blurRadius: 10, offset: const Offset(0, 5))
                             ],
                           ),
                           child: Column(
@@ -175,9 +196,9 @@ class _HomeScreenState extends State<HomePages> {
       child: Container(
         padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.15),
+          color: Colors.white.withValues(alpha: 38),
           borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: Colors.white.withOpacity(0.2)),
+          border: Border.all(color: Colors.white.withValues(alpha: 51)),
         ),
         child: Row(
           children: [
@@ -215,7 +236,7 @@ class _HomeScreenState extends State<HomePages> {
       decoration: BoxDecoration(
         color: Colors.white, 
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.05), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.grey.withValues(alpha: 13), blurRadius: 10)],
       ),
       child: ListView.separated(
         shrinkWrap: true, // Agar bisa di dalam SingleChildScrollView
@@ -292,7 +313,7 @@ class _HomeScreenState extends State<HomePages> {
       decoration: BoxDecoration(
         color: Colors.white, 
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.05), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.grey.withValues(alpha: 13), blurRadius: 10)],
       ),
       child: ListView.separated(
         shrinkWrap: true,
