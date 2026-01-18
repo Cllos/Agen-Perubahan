@@ -1,6 +1,10 @@
 // Helper untuk base domain/IP API
 class ApiHelper {
-  static const String baseUrl = "http://192.168.1.13:5000"; // Ganti sesuai kebutuhan
+  static const String _defaultBaseUrl = "http://10.114.167.1:5000";
+  static const Duration requestTimeout = Duration(seconds: 15);
+
+  static String get baseUrl =>
+      const String.fromEnvironment('API_BASE_URL', defaultValue: _defaultBaseUrl);
 
   static String getUrl(String endpoint) {
     return "$baseUrl$endpoint";

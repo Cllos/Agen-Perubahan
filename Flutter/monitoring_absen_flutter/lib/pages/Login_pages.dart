@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'dart:async';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../helpers/api_helper.dart';
 import 'BottomNav.dart'; 
@@ -15,7 +17,6 @@ class _LoginPagesState extends State<LoginPages> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   
-  bool _rememberMe = false;
   bool _isLoading = false;
 
   // --- GANTI IP DI SINI SESUAI LAPTOP ANDA ---
@@ -29,52 +30,60 @@ class _LoginPagesState extends State<LoginPages> {
   }
 
   Future<void> _handleLogin() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
     String username = _usernameController.text.trim();
     String password = _passwordController.text.trim();
 
     if (username.isEmpty || password.isEmpty) {
-      _showSnackBar("Username dan Password harus diisi", Colors.red);
+      _showSnackBar(messenger, "Username dan Password harus diisi", Colors.red);
       return;
     }
 
     setState(() => _isLoading = true);
 
     try {
-      final response = await http.post(
-        Uri.parse(apiUrl),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "username": username,
-          "password": password,
-        }),
-      );
+      final response = await http
+          .post(
+            Uri.parse(apiUrl),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({
+              "username": username,
+              "password": password,
+            }),
+          )
+          .timeout(ApiHelper.requestTimeout);
 
       final data = jsonDecode(response.body);
 
       if (!mounted) return; 
 
       if (response.statusCode == 200) {
-        _showSnackBar("Login Berhasil! Selamat datang ${data['user']['name']}", Colors.green);
-        Navigator.pushReplacement(
-          context, 
-          MaterialPageRoute(builder: (context) => const BottomNav())
+        _showSnackBar(messenger, "Login Berhasil! Selamat datang ${data['user']['name']}", Colors.green);
+        navigator.pushReplacement(
+          MaterialPageRoute(builder: (context) => const BottomNav()),
         );
 
       } else if (response.statusCode == 403) {
-        _showSnackBar("Akses Ditolak: Karyawan tidak dapat login di aplikasi ini.", Colors.orange);
+        _showSnackBar(messenger, "Akses Ditolak: Karyawan tidak dapat login di aplikasi ini.", Colors.orange);
       } else {
-        _showSnackBar(data['message'] ?? "Login Gagal", Colors.red);
+        _showSnackBar(messenger, data['message'] ?? "Login Gagal", Colors.red);
       }
+    } on TimeoutException {
+      _showSnackBar(messenger, "Request timeout", Colors.red);
+    } on SocketException {
+      _showSnackBar(messenger, "Gagal terhubung ke server. Pastikan IP benar.", Colors.red);
     } catch (e) {
-      _showSnackBar("Gagal terhubung ke server. Pastikan IP benar.", Colors.red);
-      print("Error Login: $e");
+      _showSnackBar(messenger, "Gagal terhubung ke server. Pastikan IP benar.", Colors.red);
+      debugPrint("Error Login: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
+  void _showSnackBar(ScaffoldMessengerState messenger, String message, Color color) {
+    messenger.showSnackBar(
       SnackBar(content: Text(message), backgroundColor: color),
     );
   }
@@ -110,7 +119,7 @@ class _LoginPagesState extends State<LoginPages> {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
+                        color: Colors.black.withValues(alpha: 51),
                         blurRadius: 15,
                         offset: const Offset(0, 5),
                       ),
@@ -142,7 +151,7 @@ class _LoginPagesState extends State<LoginPages> {
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.25),
+                        color: Colors.black.withValues(alpha: 64),
                         blurRadius: 25,
                         offset: const Offset(0, 10),
                       ),
@@ -196,7 +205,7 @@ class _LoginPagesState extends State<LoginPages> {
                             backgroundColor: Colors.blue.shade700,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             elevation: 5,
-                            shadowColor: Colors.blue.withOpacity(0.4),
+                            shadowColor: Colors.blue.withValues(alpha: 102),
                           ),
                           child: _isLoading 
                             ? const SizedBox(
@@ -216,7 +225,7 @@ class _LoginPagesState extends State<LoginPages> {
                 const SizedBox(height: 30),
                 Text(
                   "Versi 1.0.0",
-                  style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 128), fontSize: 12),
                 )
               ],
             ),

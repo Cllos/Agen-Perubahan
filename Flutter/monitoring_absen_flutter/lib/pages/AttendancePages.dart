@@ -22,9 +22,6 @@ class AttendanceRecord {
   AttendanceRecord(this.id, this.employeeName, this.avatarUrl, this.checkInTime, this.status, {this.location, this.evidenceUrl});
 }
 
-// Data awal (Kosongkan dulu biar ambil dari state nanti)
-List<AttendanceRecord> todayAttendance = [];
-
 // --- MAIN WIDGET ---
 class AttendancePages extends StatefulWidget {
   const AttendancePages({super.key});
@@ -34,9 +31,84 @@ class AttendancePages extends StatefulWidget {
 }
 
 class _AttendancePagesState extends State<AttendancePages> {
+  List<AttendanceRecord> _todayAttendance = [];
+  bool _isLoadingToday = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchTodayAttendance();
+  }
+
   // Format Waktu UI
   String _formatTime(DateTime date) {
     return "${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}";
+  }
+
+  String _getInitials(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return "?";
+    final parts = trimmed.split(RegExp(r"\s+")).where((p) => p.isNotEmpty).toList();
+    if (parts.length == 1) {
+      final p = parts.first;
+      return (p.length >= 2 ? p.substring(0, 2) : p.substring(0, 1)).toUpperCase();
+    }
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
+  String _displayStatus(String raw) {
+    final normalized = raw.toLowerCase();
+    if (normalized == 'tercepat') return "Tercepat";
+    if (normalized == 'hadir') return "Hadir";
+    if (normalized == 'tepat_waktu') return "Tepat Waktu";
+    return raw;
+  }
+
+  Future<void> _fetchTodayAttendance() async {
+    setState(() => _isLoadingToday = true);
+    try {
+      final response = await http
+          .get(Uri.parse(ApiHelper.getUrl('/api/attendance/today')))
+          .timeout(ApiHelper.requestTimeout);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        final parsed = data.map<AttendanceRecord>((json) {
+          final name = (json['full_name'] ?? '').toString();
+          final dateStr = (json['date'] ?? DateTime.now().toIso8601String()).toString();
+          final timeStr = (json['check_in_time'] ?? '00:00:00').toString();
+          final dateOnly = dateStr.contains('T') ? dateStr.split('T')[0] : dateStr;
+          final dt = DateTime.tryParse("$dateOnly $timeStr") ?? DateTime.now();
+          final status = _displayStatus((json['status'] ?? '-').toString());
+
+          return AttendanceRecord(
+            (json['id'] ?? '').toString(),
+            name.isEmpty ? "Unknown" : name,
+            _getInitials(name.isEmpty ? "Unknown" : name),
+            dt,
+            status,
+            location: json['location']?.toString(),
+            evidenceUrl: json['photo_url']?.toString(),
+          );
+        }).toList();
+
+        if (!mounted) return;
+        setState(() {
+          _todayAttendance = parsed;
+          _isLoadingToday = false;
+        });
+        return;
+      }
+      debugPrint("Gagal memuat absensi hari ini: ${response.statusCode} ${response.body}");
+    } on TimeoutException {
+      debugPrint("Gagal memuat absensi hari ini: timeout");
+    } on SocketException {
+      debugPrint("Gagal memuat absensi hari ini: socket");
+    } catch (e) {
+      debugPrint("Gagal memuat absensi hari ini: $e");
+    }
+
+    if (!mounted) return;
+    setState(() => _isLoadingToday = false);
   }
 
   void _showAddAttendanceDialog() {
@@ -48,7 +120,7 @@ class _AttendancePagesState extends State<AttendancePages> {
           setState(() {
             // Logic: Tambahkan data baru ke list paling atas (index 0)
             // agar data tidak hilang dan langsung muncul
-            todayAttendance.insert(0, newRecord);
+            _todayAttendance.insert(0, newRecord);
           });
         },
       ),
@@ -96,100 +168,123 @@ class _AttendancePagesState extends State<AttendancePages> {
 
           // --- LIST ATTENDANCE ---
           Expanded(
-            child: todayAttendance.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.camera_alt, size: 60, color: Colors.grey[300]),
-                        const SizedBox(height: 16),
-                        const Text("Belum ada data absensi hari ini", style: TextStyle(color: Colors.grey)),
-                        const SizedBox(height: 8),
-                        ElevatedButton.icon(
-                          onPressed: _showAddAttendanceDialog,
-                          icon: const Icon(Icons.add),
-                          label: const Text("Absen Sekarang"),
-                        )
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: todayAttendance.length,
-                    itemBuilder: (context, index) {
-                      final record = todayAttendance[index];
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Row(
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 13), blurRadius: 12, offset: const Offset(0, -2))],
+              ),
+              child: _isLoadingToday
+                  ? const Center(child: CircularProgressIndicator())
+                  : _todayAttendance.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              // Avatar / Foto Bukti
-                              CircleAvatar(
-                                radius: 24,
-                                backgroundColor: Colors.blue[100],
-                                backgroundImage: record.evidenceUrl != null 
-                                  ? NetworkImage(record.evidenceUrl!) // Tampilkan foto bukti jika ada
-                                  : null,
-                                child: record.evidenceUrl == null 
-                                  ? Text(record.avatarUrl, style: const TextStyle(fontWeight: FontWeight.bold))
-                                  : null,
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                              Icon(Icons.camera_alt, size: 60, color: Colors.grey[300]),
+                              const SizedBox(height: 16),
+                              const Text("Belum ada data absensi hari ini", style: TextStyle(color: Colors.grey)),
+                              const SizedBox(height: 8),
+                              ElevatedButton.icon(
+                                onPressed: _showAddAttendanceDialog,
+                                icon: const Icon(Icons.add),
+                                label: const Text("Absen Sekarang"),
+                              )
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: _todayAttendance.length,
+                          itemBuilder: (context, index) {
+                            final record = _todayAttendance[index];
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
                                   children: [
-                                    Text(record.employeeName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.access_time, size: 14, color: Colors.grey),
-                                        const SizedBox(width: 4),
-                                        Text(_formatTime(record.checkInTime), style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                                      ],
+                                    CircleAvatar(
+                                      radius: 24,
+                                      backgroundColor: Colors.blue[100],
+                                      child: record.evidenceUrl != null
+                                          ? ClipOval(
+                                              child: Image.network(
+                                                record.evidenceUrl!,
+                                                width: 48,
+                                                height: 48,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (context, error, stackTrace) {
+                                                  return const SizedBox(
+                                                    width: 48,
+                                                    height: 48,
+                                                    child: Center(
+                                                      child: Icon(Icons.broken_image_outlined, color: Colors.white),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            )
+                                          : Text(record.avatarUrl, style: const TextStyle(fontWeight: FontWeight.bold)),
                                     ),
-                                    // Tampilkan Lokasi
-                                    if (record.location != null)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 4.0),
-                                        child: Row(
-                                          children: [
-                                            const Icon(Icons.location_on, size: 14, color: Colors.redAccent),
-                                            const SizedBox(width: 4),
-                                            Expanded(
-                                              child: Text(
-                                                record.location!, 
-                                                style: const TextStyle(color: Colors.grey, fontSize: 11),
-                                                maxLines: 1, 
-                                                overflow: TextOverflow.ellipsis
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(record.employeeName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                          const SizedBox(height: 4),
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                                              const SizedBox(width: 4),
+                                              Text(_formatTime(record.checkInTime), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                                            ],
+                                          ),
+                                          if (record.location != null)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 4.0),
+                                              child: Row(
+                                                children: [
+                                                  const Icon(Icons.location_on, size: 14, color: Colors.redAccent),
+                                                  const SizedBox(width: 4),
+                                                  Expanded(
+                                                    child: Text(
+                                                      record.location!,
+                                                      style: const TextStyle(color: Colors.grey, fontSize: 11),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ),
-                                          ],
-                                        ),
+                                        ],
                                       ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green[50],
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        record.status,
+                                        style: TextStyle(color: Colors.green[700], fontWeight: FontWeight.bold, fontSize: 12),
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
-                              // Status Badge
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: Colors.green[50],
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  record.status,
-                                  style: TextStyle(color: Colors.green[700], fontWeight: FontWeight.bold, fontSize: 12),
-                                ),
-                              ),
-                            ],
-                          ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
+            ),
           ),
         ],
       ),
@@ -211,7 +306,6 @@ class _AddAttendanceDialogState extends State<AddAttendanceDialog> {
   File? _imageFile;
   String _currentAddress = "Mencari lokasi...";
   bool _isLoading = false;
-  bool _isLocationReady = false;
 
   // Data Pegawai
   List<dynamic> _employees = []; 
@@ -219,6 +313,25 @@ class _AddAttendanceDialogState extends State<AddAttendanceDialog> {
   String? _selectedEmployeeId;   
 
   final ImagePicker _picker = ImagePicker();
+
+  String _getInitials(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return "?";
+    final parts = trimmed.split(RegExp(r"\s+")).where((p) => p.isNotEmpty).toList();
+    if (parts.length == 1) {
+      final p = parts.first;
+      return (p.length >= 2 ? p.substring(0, 2) : p.substring(0, 1)).toUpperCase();
+    }
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
+  String _displayStatus(String raw) {
+    final normalized = raw.toLowerCase();
+    if (normalized == 'tercepat') return "Tercepat";
+    if (normalized == 'hadir') return "Hadir";
+    if (normalized == 'tepat_waktu') return "Tepat Waktu";
+    return raw;
+  }
 
   @override
   void initState() {
@@ -230,13 +343,21 @@ class _AddAttendanceDialogState extends State<AddAttendanceDialog> {
   // 1. Fetch Pegawai
   Future<void> _fetchEmployees() async {
     try {
-      // GANTI IP
-      final response = await http.get(Uri.parse(ApiHelper.getUrl('/api/pegawai')));
+      final response = await http
+          .get(Uri.parse(ApiHelper.getUrl('/api/pegawai')))
+          .timeout(ApiHelper.requestTimeout);
       if (response.statusCode == 200) {
+        if (!mounted) return;
         setState(() => _employees = jsonDecode(response.body));
+        return;
       }
+      debugPrint("Error fetching employees: ${response.statusCode} ${response.body}");
+    } on TimeoutException {
+      debugPrint("Error fetching employees: timeout");
+    } on SocketException {
+      debugPrint("Error fetching employees: socket");
     } catch (e) {
-      print("Error fetching employees: $e");
+      debugPrint("Error fetching employees: $e");
     }
   }
 
@@ -268,7 +389,6 @@ class _AddAttendanceDialogState extends State<AddAttendanceDialog> {
         Placemark place = placemarks[0];
         setState(() {
           _currentAddress = "${place.street}, ${place.subLocality}, ${place.locality}";
-          _isLocationReady = true;
         });
       }
     } catch (e) {
@@ -294,6 +414,9 @@ class _AddAttendanceDialogState extends State<AddAttendanceDialog> {
   Future<void> _handleSubmit() async {
     if (_selectedEmployeeId == null || _imageFile == null) return;
 
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
     setState(() => _isLoading = true);
 
     try {
@@ -302,40 +425,59 @@ class _AddAttendanceDialogState extends State<AddAttendanceDialog> {
       
       // Fields text
       request.fields['user_id'] = _selectedEmployeeId.toString(); // ID dari user_id tabel users
-      request.fields['status'] = 'tepat_waktu'; // Default
       request.fields['location'] = _currentAddress;
 
       // File Image
       request.files.add(await http.MultipartFile.fromPath('photo', _imageFile!.path));
 
       // Kirim
-      var streamedResponse = await request.send();
+      var streamedResponse = await request.send().timeout(ApiHelper.requestTimeout);
       var response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
         var responseData = jsonDecode(response.body);
         var data = responseData['data']; // Data log yang baru masuk
+        final assignedStatusRaw = (responseData['assignedStatus'] ?? data['status'] ?? '').toString();
 
-        // Buat object record untuk update UI lokal
+        final dateStr = (data['date'] ?? DateTime.now().toIso8601String()).toString();
+        final timeStr = (data['check_in_time'] ?? '00:00:00').toString();
+        final dateOnly = dateStr.contains('T') ? dateStr.split('T')[0] : dateStr;
+        final dt = DateTime.tryParse("$dateOnly $timeStr") ?? DateTime.now();
+        final name = (data['full_name'] ?? _selectedEmployeeName ?? "Unknown").toString();
+
         final newRecord = AttendanceRecord(
           data['id'].toString(),
-          _selectedEmployeeName!, 
-          _selectedEmployeeName!.substring(0, 2).toUpperCase(), 
-          DateTime.now(),
-          "Tepat Waktu",
+          name, 
+          _getInitials(name),
+          dt,
+          _displayStatus(assignedStatusRaw),
           location: _currentAddress,
           evidenceUrl: data['photo_url'] // URL foto dari backend
         );
 
         widget.onSuccess(newRecord); // Callback ke halaman utama
-        Navigator.of(context).pop(); // Tutup dialog
+        if (!mounted) return;
+        navigator.pop(); // Tutup dialog
+      } else if (response.statusCode == 409) {
+        final body = jsonDecode(response.body);
+        final message = (body['message'] ?? 'Pegawai sudah absen hari ini').toString();
+        if (!mounted) return;
+        messenger.showSnackBar(SnackBar(content: Text(message)));
       } else {
-        print("Gagal upload: ${response.body}");
+        debugPrint("Gagal upload: ${response.statusCode} ${response.body}");
       }
+    } on TimeoutException {
+      if (!mounted) return;
+      messenger.showSnackBar(const SnackBar(content: Text("Request timeout")));
+    } on SocketException {
+      if (!mounted) return;
+      messenger.showSnackBar(const SnackBar(content: Text("Gagal terhubung ke server")));
     } catch (e) {
-      print("Error submitting: $e");
+      debugPrint("Error submitting: $e");
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 

@@ -1,4 +1,3 @@
-import '../helpers/api_helper.dart';
 import 'package:flutter/material.dart';
 import 'HomePages.dart';
 import 'AttendancePages.dart';
@@ -65,7 +64,7 @@ class CustomBottomNavigation extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1), // shadow-lg simulation
+            color: Colors.black.withValues(alpha: 26), // shadow-lg simulation
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),

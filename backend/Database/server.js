@@ -169,6 +169,12 @@ app.post('/api/attendance', upload.single('photo'), async (req, res) => {
   const date = now.toISOString().split('T')[0]; // Format YYYY-MM-DD
 
   try {
+    const existingSql = "SELECT 1 FROM attendance_logs WHERE user_id = $1 AND date = $2 LIMIT 1";
+    const existingRes = await pool.query(existingSql, [user_id, date]);
+    if (existingRes.rows.length > 0) {
+      return res.status(409).json({ message: "Pegawai sudah absen hari ini" });
+    }
+
     // A. Cek jumlah absen hari ini untuk menentukan status
     const countSql = "SELECT COUNT(*) FROM attendance_logs WHERE date = $1";
     const countRes = await pool.query(countSql, [date]);
@@ -181,12 +187,17 @@ app.post('/api/attendance', upload.single('photo'), async (req, res) => {
 
     // C. Simpan ke Database
     const sql = `
-      INSERT INTO attendance_logs (user_id, date, check_in_time, status, photo_url, location) 
-      VALUES ($1, $2, $3, $4, $5, $6) 
-      RETURNING *
+      WITH inserted AS (
+        INSERT INTO attendance_logs (user_id, date, check_in_time, status, photo_url, location) 
+        VALUES ($1, $2, $3, $4, $5, $6) 
+        RETURNING *
+      )
+      SELECT inserted.*, u.full_name, u.employee_id, u.avatar_url
+      FROM inserted
+      JOIN users u ON inserted.user_id = u.id
     `;
     const result = await pool.query(sql, [user_id, date, checkInTime, status, photoUrl, location]);
-    
+
     res.json({ message: "Absen berhasil!", data: result.rows[0], assignedStatus: status });
 
   } catch (err) {
@@ -195,7 +206,26 @@ app.post('/api/attendance', upload.single('photo'), async (req, res) => {
   }
 });
 
-// 7. DASHBOARD DATA (UNTUK SCROLLABLE BOX)
+// 7. ABSENSI HARI INI (UNTUK MOBILE)
+app.get('/api/attendance/today', async (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const sql = `
+      SELECT a.*, u.full_name, u.employee_id, u.avatar_url 
+      FROM attendance_logs a
+      JOIN users u ON a.user_id = u.id
+      WHERE a.date = $1
+      ORDER BY a.check_in_time DESC
+    `;
+    const result = await pool.query(sql, [today]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 8. DASHBOARD DATA (UNTUK SCROLLABLE BOX)
 app.get('/api/dashboard', async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
@@ -242,7 +272,7 @@ app.get('/api/dashboard', async (req, res) => {
   }
 });
 
-// 8. RIWAYAT LENGKAP
+// 9. RIWAYAT LENGKAP
 app.get('/api/riwayat', (req, res) => {
   const sql = `
     SELECT 
