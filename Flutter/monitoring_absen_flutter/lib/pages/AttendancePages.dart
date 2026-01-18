@@ -129,25 +129,12 @@ class _AttendancePagesState extends State<AttendancePages> {
                               CircleAvatar(
                                 radius: 24,
                                 backgroundColor: Colors.blue[100],
-                                child: record.evidenceUrl != null
-                                    ? ClipOval(
-                                        child: Image.network(
-                                          record.evidenceUrl!,
-                                          width: 48,
-                                          height: 48,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) {
-                                            return const SizedBox(
-                                              width: 48,
-                                              height: 48,
-                                              child: Center(
-                                                child: Icon(Icons.broken_image_outlined, color: Colors.white),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      )
-                                    : Text(record.avatarUrl, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                backgroundImage: record.evidenceUrl != null 
+                                  ? NetworkImage(record.evidenceUrl!) // Tampilkan foto bukti jika ada
+                                  : null,
+                                child: record.evidenceUrl == null 
+                                  ? Text(record.avatarUrl, style: const TextStyle(fontWeight: FontWeight.bold))
+                                  : null,
                               ),
                               const SizedBox(width: 16),
                               Expanded(
@@ -224,6 +211,7 @@ class _AddAttendanceDialogState extends State<AddAttendanceDialog> {
   File? _imageFile;
   String _currentAddress = "Mencari lokasi...";
   bool _isLoading = false;
+  bool _isLocationReady = false;
 
   // Data Pegawai
   List<dynamic> _employees = []; 
@@ -243,19 +231,12 @@ class _AddAttendanceDialogState extends State<AddAttendanceDialog> {
   Future<void> _fetchEmployees() async {
     try {
       // GANTI IP
-      final response = await http
-          .get(Uri.parse(ApiHelper.getUrl('/api/pegawai')))
-          .timeout(ApiHelper.requestTimeout);
+      final response = await http.get(Uri.parse(ApiHelper.getUrl('/api/pegawai')));
       if (response.statusCode == 200) {
-        if (!mounted) return;
         setState(() => _employees = jsonDecode(response.body));
       }
-    } on TimeoutException {
-      debugPrint("Error fetching employees: timeout");
-    } on SocketException {
-      debugPrint("Error fetching employees: socket");
     } catch (e) {
-      debugPrint("Error fetching employees: $e");
+      print("Error fetching employees: $e");
     }
   }
 
@@ -287,6 +268,7 @@ class _AddAttendanceDialogState extends State<AddAttendanceDialog> {
         Placemark place = placemarks[0];
         setState(() {
           _currentAddress = "${place.street}, ${place.subLocality}, ${place.locality}";
+          _isLocationReady = true;
         });
       }
     } catch (e) {
@@ -327,7 +309,7 @@ class _AddAttendanceDialogState extends State<AddAttendanceDialog> {
       request.files.add(await http.MultipartFile.fromPath('photo', _imageFile!.path));
 
       // Kirim
-      var streamedResponse = await request.send().timeout(ApiHelper.requestTimeout);
+      var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
@@ -345,20 +327,15 @@ class _AddAttendanceDialogState extends State<AddAttendanceDialog> {
           evidenceUrl: data['photo_url'] // URL foto dari backend
         );
 
-        if (!mounted) return;
         widget.onSuccess(newRecord); // Callback ke halaman utama
         Navigator.of(context).pop(); // Tutup dialog
       } else {
-        debugPrint("Gagal upload: ${response.body}");
+        print("Gagal upload: ${response.body}");
       }
-    } on TimeoutException {
-      debugPrint("Error submitting: timeout");
-    } on SocketException {
-      debugPrint("Error submitting: socket");
     } catch (e) {
-      debugPrint("Error submitting: $e");
+      print("Error submitting: $e");
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      setState(() => _isLoading = false);
     }
   }
 

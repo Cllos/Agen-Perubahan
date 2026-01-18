@@ -3,7 +3,6 @@ import 'package:http/http.dart' as http;
 import '../helpers/api_helper.dart';
 import 'dart:convert';
 import 'dart:async';
-import 'dart:io';
 
 // MODEL DATA
 class HistoryRecord {
@@ -75,9 +74,7 @@ class _HistoryScreenState extends State<HistoryPages> {
 
   Future<void> _fetchHistoryData() async {
     try {
-      final response = await http
-          .get(Uri.parse(apiUrl))
-          .timeout(ApiHelper.requestTimeout);
+      final response = await http.get(Uri.parse(apiUrl));
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         if (mounted) {
@@ -87,12 +84,8 @@ class _HistoryScreenState extends State<HistoryPages> {
           });
         }
       }
-    } on TimeoutException {
-      if (mounted) setState(() => _isLoading = false);
-    } on SocketException {
-      if (mounted) setState(() => _isLoading = false);
     } catch (e) {
-      debugPrint("Error history: $e");
+      print("Error history: $e");
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -120,47 +113,7 @@ class _HistoryScreenState extends State<HistoryPages> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  final expectedTotalBytes = loadingProgress.expectedTotalBytes;
-                  final loadedBytes = loadingProgress.cumulativeBytesLoaded;
-                  final value = expectedTotalBytes == null ? null : loadedBytes / expectedTotalBytes;
-                  return Container(
-                    color: Colors.black54,
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.all(16),
-                    child: CircularProgressIndicator(value: value, color: Colors.white),
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    color: Colors.black54,
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.broken_image_outlined, color: Colors.white, size: 48),
-                        const SizedBox(height: 10),
-                        const Text(
-                          "Foto bukti tidak bisa dimuat",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          imageUrl,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
+              child: Image.network(imageUrl, fit: BoxFit.cover),
             ),
             IconButton(
               icon: const Icon(Icons.close, color: Colors.white, size: 30),
@@ -184,7 +137,7 @@ class _HistoryScreenState extends State<HistoryPages> {
             decoration: BoxDecoration(
               gradient: LinearGradient(colors: [Colors.blue.shade600, Colors.blue.shade800]),
               borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
-              boxShadow: [BoxShadow(color: Colors.blue.withValues(alpha: 77), blurRadius: 10, offset: const Offset(0, 5))],
+              boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))],
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
