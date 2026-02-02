@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import '../helpers/api_helper.dart';
 import '../widgets/AppDrawer.dart'; // Pastikan import Drawer ada
 
@@ -78,126 +79,296 @@ class _HomeScreenState extends State<HomePages> {
       backgroundColor: Colors.grey[50],
       // 1. MENU DRAWER (Agar sama seperti halaman lain)
       drawer: const AppDrawer(), 
-      appBar: AppBar(
-        title: const Text("Dashboard", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-        centerTitle: true,
-        backgroundColor: Colors.blue.shade700, // Warna dasar (fallback)
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white), // Warna icon menu putih
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Colors.blue.shade600, Colors.blue.shade800],
-            ),
-          ),
-        ),
-      ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : dashboardData == null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                      const SizedBox(height: 10),
-                      const Text("Gagal terhubung ke server"),
-                      Text("Cek IP: $apiUrl", style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                    ],
-                  ),
-                )
-              : Column(
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.only(bottom: 30, left: 20, right: 20, top: 20),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Colors.blue.shade800, Colors.blue.shade600],
-                        ),
-                        borderRadius: const BorderRadius.only(
-                          bottomLeft: Radius.circular(30),
-                          bottomRight: Radius.circular(30),
-                        ),
-                        boxShadow: [
-                          BoxShadow(color: Colors.blue.withValues(alpha: 77), blurRadius: 10, offset: const Offset(0, 5))
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "Ringkasan Hari Ini",
-                            style: TextStyle(color: Colors.white70, fontSize: 14),
-                          ),
-                          const SizedBox(height: 15),
-                          Row(
-                            children: [
-                              _buildHeaderStatCard("Total Pegawai", "${dashboardData!['totalEmployees']}", Icons.people_alt),
-                              const SizedBox(width: 15),
-                              _buildHeaderStatCard("Hadir", "${dashboardData!['presentToday']}", Icons.how_to_reg),
-                            ],
-                          ),
-                        ],
-                      ),
+      body: SafeArea(
+        child: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : dashboardData == null
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                        const SizedBox(height: 10),
+                        const Text("Gagal terhubung ke server"),
+                        Text("Cek IP: $apiUrl", style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      ],
                     ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
+                  )
+                : Column(
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.only(bottom: 30, left: 20, right: 20, top: 20),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.blue.shade800, Colors.blue.shade600],
+                          ),
+                          borderRadius: const BorderRadius.only(
+                            bottomLeft: Radius.circular(30),
+                            bottomRight: Radius.circular(30),
+                          ),
+                          boxShadow: [
+                            BoxShadow(color: Colors.blue.withValues(alpha: 77), blurRadius: 10, offset: const Offset(0, 5))
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                GestureDetector(
+                                  onTap: () => Scaffold.of(context).openDrawer(),
+                                  child: const Icon(Icons.menu, color: Colors.white),
+                                ),
+                                const Column(
+                                  children: [
+                                    Text("Dashboard", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                                    Text("Ringkasan Hari Ini", style: TextStyle(fontSize: 12, color: Colors.white70)),
+                                  ],
+                                ),
+                                const SizedBox(width: 24),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                _buildHeaderStatCard("Total Pegawai", "${dashboardData!['totalEmployees']}", Icons.people_alt),
+                                const SizedBox(width: 15),
+                                _buildHeaderStatCard("Hadir", "${dashboardData!['presentToday']}", Icons.how_to_reg),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
                         child: LayoutBuilder(
                           builder: (context, constraints) {
-                            const double minAttendance = 170;
-                            const double minLeaderboard = 170;
-                            const double maxLeaderboard = 260;
-                            const double fixedOverhead = 95;
-                            final double listsAvailable = (constraints.maxHeight - fixedOverhead).clamp(0, constraints.maxHeight).toDouble();
+                            final double availableHeight = constraints.maxHeight;
+                            final double attendanceHeight = (availableHeight * 0.42).clamp(150.0, 260.0).toDouble();
+                            final double leaderboardHeight = (availableHeight * 0.34).clamp(140.0, 240.0).toDouble();
 
-                            double leaderboardHeight = (listsAvailable * 0.42).clamp(minLeaderboard, maxLeaderboard).toDouble();
-                            if (listsAvailable - leaderboardHeight < minAttendance) {
-                              leaderboardHeight = (listsAvailable - minAttendance).clamp(minLeaderboard, maxLeaderboard).toDouble();
-                            }
-                            final double attendanceHeight = (listsAvailable - leaderboardHeight).clamp(minAttendance, listsAvailable).toDouble();
-
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Row(
-                                  children: [
-                                    Icon(Icons.access_time_filled, color: Colors.blue),
-                                    SizedBox(width: 8),
-                                    Text("Kehadiran Realtime", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                SizedBox(
-                                  height: attendanceHeight,
-                                  child: _buildAttendanceList(dashboardData!['todayRecords']),
-                                ),
-                                const SizedBox(height: 25),
-                                const Row(
-                                  children: [
-                                    Icon(Icons.emoji_events, color: Colors.orange),
-                                    SizedBox(width: 8),
-                                    Text("Top 5 Tercepat (Bulan Ini)", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                SizedBox(
-                                  height: leaderboardHeight,
-                                  child: _buildLeaderboardList(dashboardData!['monthlyLeaderboard']),
-                                ),
-                              ],
+                            return SingleChildScrollView(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Icon(Icons.access_time_filled, color: Colors.blue),
+                                      SizedBox(width: 8),
+                                      Text("Kehadiran Realtime", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  SizedBox(
+                                    height: attendanceHeight,
+                                    child: _buildAttendanceList(dashboardData!['todayRecords']),
+                                  ),
+                                  const SizedBox(height: 22),
+                                  const Row(
+                                    children: [
+                                      Icon(Icons.emoji_events, color: Colors.orange),
+                                      SizedBox(width: 8),
+                                      Text("Top 5 Tercepat (Bulan Ini)", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  SizedBox(
+                                    height: leaderboardHeight,
+                                    child: _buildLeaderboardList(dashboardData!['monthlyLeaderboard']),
+                                  ),
+                                ],
+                              ),
                             );
                           },
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+      ),
+    );
+  }
+
+  void _openEvidenceSheetFromRecord(Map<String, dynamic> record) {
+    final name = (record['full_name'] ?? 'Unknown').toString();
+    final employeeId = (record['employee_id'] ?? '-').toString();
+    final timeRaw = (record['check_in_time'] ?? '').toString();
+    final location = (record['location'] ?? '').toString().trim();
+    final evidenceUrl = (record['photo_url'] ?? '').toString().trim();
+
+    DateTime timeDt = DateTime.now();
+    final parsed = DateTime.tryParse(timeRaw);
+    if (parsed != null) {
+      timeDt = parsed;
+    } else {
+      final parts = timeRaw.split(':');
+      if (parts.isNotEmpty) {
+        final h = int.tryParse(parts[0]) ?? 0;
+        final m = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+        final now = DateTime.now();
+        timeDt = DateTime(now.year, now.month, now.day, h, m);
+      }
+    }
+    final timeText = DateFormat('h:mm a').format(timeDt);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final double imageHeight = (constraints.maxHeight * 0.38).clamp(200.0, 320.0).toDouble();
+
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 44,
+                          height: 5,
+                          decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      const Text("Attendance Evidence", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 6),
+                      Text("View the evidence for the check-in.", style: TextStyle(color: Colors.grey.shade600)),
+                      const SizedBox(height: 14),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: imageHeight,
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: evidenceUrl.isEmpty
+                                    ? Container(
+                                        color: Colors.grey.shade200,
+                                        alignment: Alignment.center,
+                                        child: Icon(Icons.image_not_supported_outlined, color: Colors.grey.shade500, size: 44),
+                                      )
+                                    : Image.network(
+                                        evidenceUrl,
+                                        fit: BoxFit.cover,
+                                        loadingBuilder: (context, child, loadingProgress) {
+                                          if (loadingProgress == null) return child;
+                                          final expectedTotalBytes = loadingProgress.expectedTotalBytes;
+                                          final loadedBytes = loadingProgress.cumulativeBytesLoaded;
+                                          final value = expectedTotalBytes == null ? null : loadedBytes / expectedTotalBytes;
+                                          return Container(
+                                            color: Colors.grey.shade200,
+                                            alignment: Alignment.center,
+                                            child: CircularProgressIndicator(value: value),
+                                          );
+                                        },
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return Container(
+                                            color: Colors.grey.shade200,
+                                            alignment: Alignment.center,
+                                            child: Icon(Icons.broken_image_outlined, color: Colors.grey.shade600, size: 44),
+                                          );
+                                        },
+                                      ),
+                              ),
+                              Positioned.fill(
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [Colors.transparent, Colors.black.withValues(alpha: 140)],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                left: 14,
+                                right: 14,
+                                bottom: 14,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(timeText, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                                    if (location.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(location, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            children: [
+                              _detailRow("Employee", name),
+                              const SizedBox(height: 10),
+                              _detailRow("Employee ID", employeeId),
+                              const SizedBox(height: 10),
+                              _detailRow("Check-in Time", timeText),
+                              const SizedBox(height: 10),
+                              _detailRow("Location", location.isEmpty ? "-" : location),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(sheetContext),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          child: const Text("Tutup", style: TextStyle(color: Colors.white)),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(width: 110, child: Text(label, style: TextStyle(color: Colors.grey.shade600))),
+        const SizedBox(width: 10),
+        Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w600))),
+      ],
     );
   }
 
@@ -207,9 +378,9 @@ class _HomeScreenState extends State<HomePages> {
       child: Container(
         padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 38),
+          color: const Color.fromARGB(255, 255, 255, 255).withValues(alpha: 38),
           borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: Colors.white.withValues(alpha: 51)),
+          border: Border.all(color: const Color.fromARGB(255, 132, 132, 132).withValues(alpha: 51)),
         ),
         child: Row(
           children: [
@@ -222,8 +393,8 @@ class _HomeScreenState extends State<HomePages> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(count, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-                Text(title, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                Text(count, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 0, 0, 0))),
+                Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color.fromARGB(179, 0, 0, 0))),
               ],
             ),
           ],
@@ -259,6 +430,7 @@ class _HomeScreenState extends State<HomePages> {
           final isFastest = record['status'] == 'tercepat';
 
           return ListTile(
+            onTap: () => _openEvidenceSheetFromRecord(Map<String, dynamic>.from(record)),
             leading: Stack(
               children: [
                 CircleAvatar(

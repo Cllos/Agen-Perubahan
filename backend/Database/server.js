@@ -215,7 +215,7 @@ app.get('/api/attendance/today', async (req, res) => {
       FROM attendance_logs a
       JOIN users u ON a.user_id = u.id
       WHERE a.date = $1
-      ORDER BY a.check_in_time DESC
+      ORDER BY a.check_in_time ASC
     `;
     const result = await pool.query(sql, [today]);
     res.json(result.rows);

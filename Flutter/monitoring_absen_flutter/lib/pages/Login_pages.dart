@@ -19,7 +19,6 @@ class _LoginPagesState extends State<LoginPages> {
   
   bool _isLoading = false;
 
-  // --- GANTI IP DI SINI SESUAI LAPTOP ANDA ---
   final String apiUrl = ApiHelper.getUrl('/api/login');
 
   @override
@@ -60,7 +59,13 @@ class _LoginPagesState extends State<LoginPages> {
       if (!mounted) return; 
 
       if (response.statusCode == 200) {
-        _showSnackBar(messenger, "Login Berhasil! Selamat datang ${data['user']['name']}", Colors.green);
+        final user = data['user'] as Map<String, dynamic>? ?? {};
+        ApiHelper.currentUser = {
+          "username": username,
+          "employee_id": user['employee_id'],
+          "role": user['role'],
+        };
+        _showSnackBar(messenger, "Login Berhasil! Selamat datang ${user['name'] ?? username}", Colors.green);
         navigator.pushReplacement(
           MaterialPageRoute(builder: (context) => const BottomNav()),
         );
@@ -126,17 +131,17 @@ class _LoginPagesState extends State<LoginPages> {
                     ],
                   ),
                   child: Center(
-                    child: Icon(Icons.admin_panel_settings, size: 50, color: Colors.blue.shade800),
+                    child: Image.asset("assets/logo_ap.png", width: 60, height: 60, fit: BoxFit.contain),
                   ),
                 ),
                 const SizedBox(height: 20),
                 const Text(
-                  "AttendEase",
+                  "Agen Perubahan",
                   style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.2),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  "Admin & Security Access",
+                  "Absensi Harian Mobile",
                   style: TextStyle(color: Colors.blue.shade100, fontSize: 16),
                 ),
                 const SizedBox(height: 50),
@@ -161,7 +166,7 @@ class _LoginPagesState extends State<LoginPages> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const Text(
-                        "Welcome Back",
+                        "Welcome",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)
@@ -213,7 +218,7 @@ class _LoginPagesState extends State<LoginPages> {
                                 child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)
                               )
                             : const Text(
-                                "LOGIN",
+                                "MASUK",
                                 style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1),
                               ),
                         ),

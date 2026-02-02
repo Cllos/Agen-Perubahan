@@ -371,152 +371,143 @@ class _HistoryScreenState extends State<HistoryPages> {
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: Column(
-        children: [
-          // HEADER BIRU (Sama seperti Home)
-          Container(
-            padding: const EdgeInsets.fromLTRB(20, 60, 20, 25),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [Colors.blue.shade600, Colors.blue.shade800]),
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
-              boxShadow: [BoxShadow(color: Colors.blue.withValues(alpha: 77), blurRadius: 10, offset: const Offset(0, 5))],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text("Riwayat Absensi", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
-                Stack(
-                  alignment: Alignment.topRight,
-                  children: [
-                    IconButton(
-                      onPressed: _openFilterSheet,
-                      icon: const Icon(Icons.filter_list_rounded, color: Colors.white),
-                    ),
-                    if (isFilterActive)
-                      Positioned(
-                        right: 10,
-                        top: 10,
-                        child: Container(
-                          width: 10,
-                          height: 10,
-                          decoration: BoxDecoration(
-                            color: Colors.amber,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.white, width: 1),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 25),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [Colors.blue.shade600, Colors.blue.shade800]),
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
+                boxShadow: [BoxShadow(color: Colors.blue.withValues(alpha: 77), blurRadius: 10, offset: const Offset(0, 5))],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text("Riwayat Absensi", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+                  Stack(
+                    alignment: Alignment.topRight,
+                    children: [
+                      IconButton(
+                        onPressed: _openFilterSheet,
+                        icon: const Icon(Icons.filter_list_rounded, color: Colors.white),
+                      ),
+                      if (isFilterActive)
+                        Positioned(
+                          right: 10,
+                          top: 10,
+                          child: Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              color: Colors.amber,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.white, width: 1),
+                            ),
                           ),
                         ),
-                      ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
+            Expanded(
+              child: _isLoading 
+                ? const Center(child: CircularProgressIndicator()) 
+                : _historyList.isEmpty
+                  ? const Center(child: Text("Belum ada data riwayat.", style: TextStyle(color: Colors.grey)))
+                  : displayedList.isEmpty
+                    ? const Center(child: Text("Tidak ada data sesuai filter.", style: TextStyle(color: Colors.grey)))
+                    : ListView.builder(
+                      padding: const EdgeInsets.all(20),
+                      itemCount: displayedList.length,
+                      itemBuilder: (ctx, index) {
+                        final record = displayedList[index];
+                        final isFastest = record.status == 'tercepat';
 
-          // LIST CONTENT
-          Expanded(
-            child: _isLoading 
-              ? const Center(child: CircularProgressIndicator()) 
-              : _historyList.isEmpty
-                ? const Center(child: Text("Belum ada data riwayat.", style: TextStyle(color: Colors.grey)))
-                : displayedList.isEmpty
-                  ? const Center(child: Text("Tidak ada data sesuai filter.", style: TextStyle(color: Colors.grey)))
-                  : ListView.builder(
-                    padding: const EdgeInsets.all(20),
-                    itemCount: displayedList.length,
-                    itemBuilder: (ctx, index) {
-                      final record = displayedList[index];
-                      final isFastest = record.status == 'tercepat';
-
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                        elevation: 2,
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Row(
-                            children: [
-                              // 1. TANGGAL (Kiri)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade100,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Column(
-                                  children: [
-                                    Text(_formatDate(record.checkInTime).split(' ')[0], 
-                                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                                    Text(_formatDate(record.checkInTime).split(' ')[1], 
-                                      style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 15),
-
-                              // 2. INFO USER (Tengah)
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(record.employeeName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.access_time, size: 14, color: Colors.grey),
-                                        const SizedBox(width: 4),
-                                        Text(_formatTime(record.checkInTime), style: const TextStyle(fontWeight: FontWeight.bold)),
-                                      ],
-                                    ),
-                                    if (record.location != null)
-                                      Text(record.location!, style: const TextStyle(fontSize: 11, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                  ],
-                                ),
-                              ),
-
-                              // 3. STATUS BADGE & FOTO (Kanan)
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  // Badge Status
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: isFastest ? Colors.amber.shade100 : Colors.blue.shade50,
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: isFastest ? Colors.amber : Colors.blue.shade200)
-                                    ),
-                                    child: Text(
-                                      isFastest ? "TERCEPAT" : "HADIR",
-                                      style: TextStyle(
-                                        color: isFastest ? Colors.amber.shade800 : Colors.blue.shade700,
-                                        fontSize: 10, fontWeight: FontWeight.bold
-                                      ),
-                                    ),
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                          elevation: 2,
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
-                                  const SizedBox(height: 8),
-                                  
-                                  // Tombol Lihat Foto (Jika ada)
-                                  if (record.evidenceUrl != null)
-                                    GestureDetector(
-                                      onTap: () => _showImageDetail(record.evidenceUrl!),
-                                      child: const Row(
+                                  child: Column(
+                                    children: [
+                                      Text(_formatDate(record.checkInTime).split(' ')[0], 
+                                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                      Text(_formatDate(record.checkInTime).split(' ')[1], 
+                                        style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 15),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(record.employeeName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                      const SizedBox(height: 4),
+                                      Row(
                                         children: [
-                                          Icon(Icons.image, size: 14, color: Colors.blue),
-                                          SizedBox(width: 2),
-                                          Text("Bukti", style: TextStyle(fontSize: 11, color: Colors.blue)),
+                                          const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                                          const SizedBox(width: 4),
+                                          Text(_formatTime(record.checkInTime), style: const TextStyle(fontWeight: FontWeight.bold)),
                                         ],
                                       ),
-                                    )
-                                ],
-                              )
-                            ],
+                                      if (record.location != null)
+                                        Text(record.location!, style: const TextStyle(fontSize: 11, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                    ],
+                                  ),
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: isFastest ? Colors.amber.shade100 : Colors.blue.shade50,
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: isFastest ? Colors.amber : Colors.blue.shade200)
+                                      ),
+                                      child: Text(
+                                        isFastest ? "TERCEPAT" : "HADIR",
+                                        style: TextStyle(
+                                          color: isFastest ? Colors.amber.shade800 : Colors.blue.shade700,
+                                          fontSize: 10, fontWeight: FontWeight.bold
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    if (record.evidenceUrl != null)
+                                      GestureDetector(
+                                        onTap: () => _showImageDetail(record.evidenceUrl!),
+                                        child: const Row(
+                                          children: [
+                                            Icon(Icons.image, size: 14, color: Colors.blue),
+                                            SizedBox(width: 2),
+                                            Text("Bukti", style: TextStyle(fontSize: 11, color: Colors.blue)),
+                                          ],
+                                        ),
+                                      )
+                                  ],
+                                )
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
