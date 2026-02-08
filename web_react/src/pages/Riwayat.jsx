@@ -29,11 +29,22 @@ export default function Riwayat() {
     { value: '10', label: 'November' }, { value: '11', label: 'Desember' },
   ];
 
+  const apiBaseUrl = 'http://localhost:5000';
+  const normalizeEvidenceUrl = (url) => {
+    if (!url) return null;
+    try {
+      const parsed = new URL(url, apiBaseUrl);
+      return `${apiBaseUrl}${parsed.pathname}${parsed.search}`;
+    } catch {
+      return url;
+    }
+  };
+
   // 2. FETCH DATA DARI SERVER (Auto Refresh)
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/riwayat');
+        const response = await fetch(`${apiBaseUrl}/api/riwayat`);
         const data = await response.json();
 
         const formattedData = data.map(record => ({
@@ -42,11 +53,9 @@ export default function Riwayat() {
           employeeId: record.employee_id,
           employeeName: record.full_name,
           checkInTime: record.check_in_time ? record.check_in_time.substring(0, 5) : '-',
-          // Mapping Status
           status: record.status === 'tepat_waktu' ? 'Tepat Waktu' : 
                   record.status === 'terlambat' ? 'Terlambat' : record.status,
-          // Mapping URL Foto (PENTING)
-          evidenceUrl: record.photo_url 
+          evidenceUrl: normalizeEvidenceUrl(record.photo_url)
         }));
 
         setHistoryAttendance(formattedData);
@@ -58,7 +67,6 @@ export default function Riwayat() {
     };
 
     fetchHistory();
-    // Auto refresh setiap 5 detik agar admin melihat data baru tanpa reload
     const interval = setInterval(fetchHistory, 5000); 
     return () => clearInterval(interval);
   }, []);
@@ -195,12 +203,18 @@ export default function Riwayat() {
           <table className="w-full text-sm text-left">
             <thead className="bg-gray-50 text-gray-700 font-medium border-b border-gray-200">
               <tr>
-                <th className="px-6 py-4">Tanggal</th>
-                <th className="px-6 py-4">ID Pegawai</th>
-                <th className="px-6 py-4">Nama</th>
-                <th className="px-6 py-4">Waktu Masuk</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-center">Bukti</th> {/* Kolom Baru */}
+                {[
+                  { label: 'Tanggal' },
+                  { label: 'ID Pegawai' },
+                  { label: 'Nama' },
+                  { label: 'Waktu Masuk' },
+                  { label: 'Status' },
+                  { label: 'Bukti', className: 'text-center' },
+                ].map((col) => (
+                  <th key={col.label} className={`px-6 py-4 ${col.className ?? ''}`.trim()}>
+                    {col.label}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">

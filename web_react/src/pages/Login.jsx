@@ -20,7 +20,7 @@ export default function Login({ onLogin }) {
       const data = await response.json();
 
       if (response.ok) {
-        onLogin(data.user); // Panggil fungsi dari App.js
+        onLogin(data.user); 
       } else {
         setError(data.message);
       }

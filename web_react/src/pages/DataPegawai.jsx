@@ -7,8 +7,8 @@ export default function DataPegawai() {
   
   // State Modal
   const [showModal, setShowModal] = useState(false);
-  const [isEditing, setIsEditing] = useState(false); // Mode Edit atau Tambah?
-  const [editId, setEditId] = useState(null);        // ID user yang sedang diedit
+  const [isEditing, setIsEditing] = useState(false); 
+  const [editId, setEditId] = useState(null);        
 
   // State Form (Hanya Nama & Posisi)
   const [formData, setFormData] = useState({
@@ -45,8 +45,8 @@ export default function DataPegawai() {
     }
 
     const url = isEditing 
-      ? `http://localhost:5000/api/pegawai/${editId}` // URL Edit
-      : 'http://localhost:5000/api/pegawai';        // URL Tambah
+      ? `http://localhost:5000/api/pegawai/${editId}` 
+      : 'http://localhost:5000/api/pegawai';      
     
     const method = isEditing ? 'PUT' : 'POST';
 

@@ -48,7 +48,7 @@ export default function DashboardLayout({ children, currentPage, onNavigate, use
         <div className="p-6 border-b border-gray-200 flex items-center justify-between">
           <div className="flex items-center gap-3">
              {/* Ganti dengan logoImage jika sudah ada */}
-            <img src="/logo_komdigi.png" alt="Logo" className="w-8 h-8 object-contain" />
+            <img src="/logo.png" alt="Logo" className="w-16 h-20 object-contain" />
             <div>
               <h1 className="font-semibold text-gray-900">Agen Perubahan</h1>
               <p className="text-xs text-gray-500">Dashboard</p>
