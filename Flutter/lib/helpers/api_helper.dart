@@ -1,6 +1,6 @@
 // Helper untuk base domain/IP API
 class ApiHelper {
-  static const String _defaultBaseUrl = "http://192.168.12.63:5000";
+  static const String _defaultBaseUrl = "http://10.217.130.1:5000";
   static const Duration requestTimeout = Duration(seconds: 15);
   static Map<String, dynamic>? currentUser;
 
